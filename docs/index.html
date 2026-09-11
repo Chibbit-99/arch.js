@@ -5,31 +5,109 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ARCH.js — Documentation</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}:root{--bg:#08090b;--surface:#101216;--surface2:#0c0e11;--border:#22252b;--text:#f2f3f5;--muted:#8b909b;--accent:#c6613f;--code:#c9cdd4}
-html{scroll-behavior:smooth}body{background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.65}a{color:inherit;text-decoration:none}code,pre{font-family:"JetBrains Mono",Consolas,monospace}.wrap{width:min(1120px,calc(100% - 40px));margin:auto}
-nav{height:76px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}.logo{display:flex;align-items:center;gap:10px;font-weight:700}.mark{width:30px;height:30px;border:1px solid #383c44;border-radius:8px;display:grid;place-items:center;color:var(--accent);font-family:monospace}.nav{display:flex;gap:24px;color:var(--muted);font-size:14px}.nav a:hover,.toc a:hover{color:var(--text)}
-.layout{display:grid;grid-template-columns:210px 1fr;gap:55px;padding:55px 0 100px}.toc{position:sticky;top:28px;align-self:start}.toc h3{font-size:12px;text-transform:uppercase;letter-spacing:1.4px;color:var(--muted);margin-bottom:15px}.toc a{display:block;color:var(--muted);font-size:14px;padding:6px 0}.content{max-width:820px}.eyebrow{color:var(--accent);font:600 13px/1.4 monospace;margin-bottom:12px}h1{font-size:clamp(42px,7vw,70px);letter-spacing:-3px;line-height:1;margin-bottom:20px}h2{font-size:32px;letter-spacing:-1.2px;margin:70px 0 18px}h3{font-size:20px;margin:34px 0 10px}.lead{font-size:18px;color:var(--muted);max-width:700px}.note{margin:22px 0;padding:18px 20px;border:1px solid var(--border);border-left:3px solid var(--accent);background:var(--surface);color:var(--muted)}
-pre{margin:18px 0;padding:20px;overflow:auto;border:1px solid var(--border);border-radius:9px;background:var(--surface2);color:var(--code);font-size:14px;line-height:1.7}.kw{color:var(--accent)}.str{color:#a8c58b}.cm{color:#5d626d}.path{color:#d7dae0;font-family:"JetBrains Mono",Consolas,monospace}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:20px}.card{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:20px}.card p{color:var(--muted);font-size:14px}.api{border:1px solid var(--border);border-radius:9px;overflow:hidden;margin:18px 0}.api-head{padding:14px 18px;background:var(--surface);border-bottom:1px solid var(--border);font-family:monospace}.api-body{padding:18px;color:var(--muted);font-size:14px}.api-body strong{color:var(--text)}.demo{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}.button{border:1px solid var(--border);padding:11px 15px;border-radius:7px;font-size:14px;font-weight:600}.button:hover{border-color:#444952;transform:translateY(-1px)}.primary{background:var(--text);color:#08090b;border-color:var(--text)}footer{border-top:1px solid var(--border);padding:28px 0;color:var(--muted);font-size:13px}footer .wrap{display:flex;justify-content:space-between}
-@media(max-width:820px){.layout{grid-template-columns:1fr}.toc{position:static;display:flex;gap:16px;flex-wrap:wrap}.toc h3{width:100%;margin-bottom:0}.grid{grid-template-columns:1fr}.nav{display:none}}
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f12;
+  --surface:#14171b;
+  --surface2:#0a0c0e;
+  --border:#262b31;
+  --border-light:#333a42;
+  --text:#d6dde3;
+  --muted:#8b98a5;
+  --dim:#5c6670;
+  --accent:#e8b84b;
+  --code:#cdd4db;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.65}
+a{color:inherit;text-decoration:none}
+code,pre,.mono{font-family:"SF Mono","Fira Code","Cascadia Code",Consolas,"Liberation Mono",monospace}
+.wrap{width:min(1100px,calc(100% - 40px));margin:auto}
+nav{height:68px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.2px}
+.mark{width:30px;height:30px;border:1px solid var(--border-light);border-radius:6px;display:grid;place-items:center;color:var(--accent);font-family:monospace;font-size:14px}
+.nav{display:flex;gap:22px;color:var(--muted);font-size:13px}
+.nav a:hover,.toc a:hover{color:var(--text)}
+.layout{display:grid;grid-template-columns:190px 1fr;gap:52px;padding:48px 0 90px}
+.toc{position:sticky;top:24px;align-self:start}
+.toc h3{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin-bottom:12px}
+.toc a{display:block;color:var(--muted);font-size:13px;padding:5px 0}
+.content{max-width:820px}
+.eyebrow{color:var(--accent);font:600 12px/1.4 monospace;letter-spacing:.2px;margin-bottom:12px}
+h1{font-size:clamp(40px,6vw,64px);letter-spacing:-2.8px;line-height:1.02;margin-bottom:18px}
+h2{font-size:28px;letter-spacing:-1px;margin:62px 0 16px}
+h3{font-size:18px;margin:30px 0 8px}
+p{margin:0 0 14px}
+.lead{font-size:17px;color:var(--muted);max-width:720px}
+.note{margin:20px 0;padding:16px 18px;border:1px solid var(--border);border-left:2px solid var(--accent);background:var(--surface);color:var(--muted);font-size:14px}
+pre{margin:16px 0;padding:18px;overflow:auto;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--code);font-size:13px;line-height:1.7}
+.kw{color:var(--accent)}
+.str{color:#afc994}
+.cm{color:var(--dim)}
+.path{color:#d7dde3;font-family:"SF Mono","Fira Code","Cascadia Code",Consolas,"Liberation Mono",monospace}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:18px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px}
+.card p{color:var(--muted);font-size:13px;margin-top:6px}
+.api{border:1px solid var(--border);border-radius:6px;overflow:hidden;margin:16px 0}
+.api-head{padding:13px 16px;background:var(--surface);border-bottom:1px solid var(--border);font-family:monospace;font-size:13px}
+.api-body{padding:16px;color:var(--muted);font-size:13px}
+.api-body strong{color:var(--text)}
+.demo{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.button{border:1px solid var(--border-light);padding:9px 13px;border-radius:5px;font-size:13px;font-weight:600;color:var(--muted)}
+.button:hover{color:var(--text);border-color:#4a525b;transform:translateY(-1px)}
+.primary{background:var(--text);color:#0d0f12;border-color:var(--text)}
+.primary:hover{color:#0d0f12;border-color:var(--text)}
+footer{border-top:1px solid var(--border);padding:25px 0;color:var(--dim);font-size:12px}
+footer .wrap{display:flex;justify-content:space-between}
+@media(max-width:800px){
+  .layout{grid-template-columns:1fr}
+  .toc{position:static;display:flex;gap:12px 18px;flex-wrap:wrap;padding-bottom:4px;border-bottom:1px solid var(--border)}
+  .toc h3{width:100%;margin-bottom:-2px}
+  .grid{grid-template-columns:1fr}
+  .nav{display:none}
+}
 </style>
 </head>
 <body>
-<nav class="wrap"><a class="logo" href="../"><span class="mark">A</span>ARCH.js</a><div class="nav"><a href="../">Home</a><a href="https://github.com/Chibbit-99/arch.js">GitHub ↗</a><a href="../demo/threejs/">Three.js Demo ↗</a></div></nav>
+<nav class="wrap">
+  <a class="logo" href="../"><span class="mark">A</span>ARCH.js</a>
+  <div class="nav">
+    <a href="../">Home</a>
+    <a href="https://github.com/Chibbit-99/arch.js">GitHub ↗</a>
+    <a href="../demo/threejs/">Three.js Demo ↗</a>
+    <a href="../releases/">Releases</a>
+  </div>
+</nav>
+
 <div class="wrap layout">
-<aside class="toc"><h3>Using ARCH.js</h3><a href="#start">Quick start</a><a href="#structure">Project layout</a><a href="#config">config.json</a><a href="#init">arch/init.js</a><a href="#files">Project files</a><a href="#npm">NPM packages</a><a href="#imports">importPackage()</a><a href="#global">importGlobal()</a><a href="#versions">Versions & subpaths</a><a href="#debug">Debugging</a><a href="#examples">Examples</a></aside>
+<aside class="toc">
+  <h3>Using ARCH.js</h3>
+  <a href="#start">Quick start</a>
+  <a href="#structure">Project layout</a>
+  <a href="#config">config.json</a>
+  <a href="#init">arch/init.js</a>
+  <a href="#files">Project files</a>
+  <a href="#npm">NPM packages</a>
+  <a href="#imports">importPackage()</a>
+  <a href="#global">importGlobal()</a>
+  <a href="#releases">Releases</a>
+  <a href="#debug">Debugging</a>
+  <a href="#examples">Examples</a>
+</aside>
+
 <main class="content">
-<p class="eyebrow">ARCH.JS / USING ARCH.JS</p>
+<p class="eyebrow">ARCH.JS / DOCUMENTATION</p>
 <h1>Build a browser project with ARCH.js.</h1>
-<p class="lead">The usual flow is simple: load <span class="path">main.js</span>, create an <span class="path">arch/</span> directory, describe your project in <span class="path">config.json</span>, optionally set up dependencies in <span class="path">arch/init.js</span>, and write your application in <span class="path">src/</span>.</p>
+<p class="lead">ARCH.js is a browser-side runtime and package loader. Load the runtime from a release file, describe your project in <span class="path">arch/config.json</span>, optionally initialize dependencies in <span class="path">arch/init.js</span>, and keep your application code in <span class="path">src/</span>.</p>
 
 <h2 id="start">Quick start</h2>
-<p>Start with a normal HTML page and load the ARCH.js runtime.</p>
+<p>Load the current ARCH.js development release from your HTML page.</p>
 <pre>&lt;!doctype html&gt;
 &lt;html&gt;
 &lt;body&gt;
     &lt;h1&gt;My ARCH.js app&lt;/h1&gt;
 
-    &lt;script src=<span class="str">"https://chibbit-99.github.io/arch.js/main.js"</span>&gt;&lt;/script&gt;
+    &lt;script src=<span class="str">"https://chibbit-99.github.io/arch.js/releases/latest.js"</span>&gt;&lt;/script&gt;
 &lt;/body&gt;
 &lt;/html&gt;</pre>
 <p>ARCH.js then looks for <span class="path">./arch/config.json</span> relative to the page.</p>
@@ -40,26 +118,26 @@ pre{margin:18px 0;padding:20px;overflow:auto;border:1px solid var(--border);bord
 │   └── init.js
 └── src/
     └── main.js</pre>
-<div class="note">You do not need a package.json for ARCH.js itself. The browser project is described by <span class="path">config.json</span>.</div>
+<div class="note">The ARCH.js project itself does not require a <span class="path">package.json</span>. Project startup is described through <span class="path">arch/config.json</span>.</div>
 
 <h2 id="structure">Project layout</h2>
 <div class="grid">
-<div class="card"><div class="path">index.html</div><p>Your webpage. Load the ARCH.js runtime with a script tag.</p></div>
-<div class="card"><div class="path">arch/config.json</div><p>Declares runtime modules and the project JavaScript files you want ARCH.js to execute.</p></div>
-<div class="card"><div class="path">arch/init.js</div><p>Optional setup code. Useful for importing packages or creating globals before your application starts.</p></div>
-<div class="card"><div class="path">src/</div><p>Your application code. ARCH.js can execute one file or several files listed in <span class="path">js</span>.</p></div>
+  <div class="card"><div class="path">index.html</div><p>Your webpage. Load ARCH.js with a script tag using a current or pinned release.</p></div>
+  <div class="card"><div class="path">arch/config.json</div><p>Declares runtime modules and the project JavaScript files that ARCH.js should execute.</p></div>
+  <div class="card"><div class="path">arch/init.js</div><p>Optional async setup code. Useful for loading packages or preparing globals before the application starts.</p></div>
+  <div class="card"><div class="path">src/</div><p>Your application code. The <span class="path">js</span> configuration can point to one file or several files.</p></div>
 </div>
 
 <h2 id="config">Configure your project</h2>
-<p>The smallest useful configuration uses the NPM loader and one entry file.</p>
+<p>A simple project can enable the bundled NPM loader and point ARCH.js at one entry file.</p>
 <pre>{
   <span class="str">"modules"</span>: [<span class="str">"npmloader.js"</span>],
   <span class="str">"js"</span>: [<span class="str">"./src/main.js"</span>]
 }</pre>
-<h3>Modules</h3>
-<p>Put module filenames in the <span class="path">modules</span> array. They are loaded from the ARCH.js module directory before your initialization code runs.</p>
-<h3>JavaScript files</h3>
-<p><span class="path">js</span> accepts either a single string or an array.</p>
+<h3>modules</h3>
+<p>The <span class="path">modules</span> array selects ARCH.js runtime modules. With <span class="path">npmloader.js</span> enabled, your project gets the browser-side NPM package loader.</p>
+<h3>js</h3>
+<p>The <span class="path">js</span> field selects the project files to execute. It accepts either one string or an array.</p>
 <pre><span class="cm">// One file</span>
 {
   <span class="str">"modules"</span>: [<span class="str">"npmloader.js"</span>],
@@ -76,15 +154,15 @@ pre{margin:18px 0;padding:20px;overflow:auto;border:1px solid var(--border);bord
 }</pre>
 
 <h2 id="init">Use arch/init.js</h2>
-<p><span class="path">arch/init.js</span> is optional. When it exists, ARCH.js executes it before the project JavaScript files and waits for it to finish.</p>
+<p><span class="path">arch/init.js</span> is optional. When present, ARCH.js runs it before the files listed in <span class="path">config.json</span> and waits for it to finish.</p>
 <pre><span class="kw">const</span> three = <span class="kw">await</span> importPackage(<span class="str">"three"</span>);
 
 globalThis.THREE = three;</pre>
-<p>This makes initialization code a convenient place to prepare libraries that the rest of your application will use.</p>
-<div class="note">ARCH.js executes <span class="path">init.js</span> as an async function, so <span class="path">await importPackage(...)</span> can be used directly.</div>
+<p>That makes <span class="path">init.js</span> a convenient place for dependency setup that should happen once before the rest of the project runs.</p>
+<div class="note">Initialization is asynchronous, so <span class="path">await importPackage(...)</span> can be used directly in <span class="path">arch/init.js</span>.</div>
 
 <h2 id="files">Write your application</h2>
-<p>Once the runtime has loaded, the files in <span class="path">js</span> are executed as browser JavaScript.</p>
+<p>Your configured project files are normal browser JavaScript.</p>
 <pre><span class="cm">// src/main.js</span>
 
 console.log(<span class="str">"ARCH.js is running"</span>);
@@ -93,66 +171,83 @@ document.body.insertAdjacentHTML(
     <span class="str">"beforeend"</span>,
     <span class="str">"&lt;p&gt;Hello from the project entry point.&lt;/p&gt;"</span>
 );</pre>
-<p>When there are multiple entries, ARCH.js fetches them concurrently and then executes them in configuration order.</p>
+<p>When several files are configured, ARCH.js fetches them concurrently and executes them in the order listed by <span class="path">js</span>.</p>
 
 <h2 id="npm">Use NPM packages</h2>
-<p>The included <span class="path">npmloader.js</span> module adds browser-side NPM imports.</p>
+<p>Enable <span class="path">npmloader.js</span>, then use <span class="path">importPackage()</span> from your project code or <span class="path">arch/init.js</span>.</p>
 <pre><span class="kw">const</span> THREE = <span class="kw">await</span> importPackage(<span class="str">"three"</span>);
 
 <span class="kw">const</span> scene = <span class="kw">new</span> THREE.Scene();
-<span class="kw">const</span> camera = <span class="kw">new</span> THREE.PerspectiveCamera(
-    70,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-);
-
-console.log(scene, camera);</pre>
-<p>The same API is used by the repository's Three.js example.</p>
+console.log(scene);</pre>
+<p>The same approach is used by the repository's Three.js example.</p>
 <div class="demo"><a class="button primary" href="../demo/threejs/">Try the Three.js example ↗</a></div>
 
 <h2 id="imports">importPackage()</h2>
-<div class="api"><div class="api-head">await importPackage(specifier)</div><div class="api-body">Loads a package and returns its module namespace. The package is resolved, bundled for the browser, and then cached for reuse.</div></div>
-<pre><span class="kw">const</span> tesseract = <span class="kw">await</span> importPackage(<span class="str">"tesseract.js"</span>);
-<span class="kw">const</span> three = <span class="kw">await</span> importPackage(<span class="str">"three"</span>);</pre>
-<p>The runtime exposes the function globally, so there is no separate ARCH.js import statement to write.</p>
+<div class="api">
+  <div class="api-head">await importPackage(specifier)</div>
+  <div class="api-body">Loads a package and returns its module namespace. ARCH.js resolves the package, prepares it for browser use, and caches the result for reuse.</div>
+</div>
+<pre><span class="kw">const</span> three = <span class="kw">await</span> importPackage(<span class="str">"three"</span>);
+<span class="kw">const</span> tesseract = <span class="kw">await</span> importPackage(<span class="str">"tesseract.js"</span>);</pre>
+<p>The function is exposed by the NPM loader and can be called directly once that module is enabled.</p>
 
 <h2 id="global">importGlobal()</h2>
-<div class="api"><div class="api-head">importGlobal(packageName, exportKey, alias)</div><div class="api-body">Copies one export from an already imported package onto <span class="path">globalThis</span>.</div></div>
+<div class="api">
+  <div class="api-head">importGlobal(packageName, exportKey, alias)</div>
+  <div class="api-body">Places one export from an already imported package onto <span class="path">globalThis</span>. The third argument is optional and lets you choose a different global name.</div>
+</div>
 <pre><span class="kw">await</span> importPackage(<span class="str">"three"</span>);
 importGlobal(<span class="str">"three"</span>, <span class="str">"ArrowHelper"</span>);
 
-<span class="cm">// Optional alias:</span>
+<span class="cm">// Optional alias</span>
 importGlobal(<span class="str">"three"</span>, <span class="str">"Vector3"</span>, <span class="str">"Vec3"</span>);</pre>
-<div class="note">The package must already be imported. <span class="path">importGlobal()</span> does not perform package loading or network requests.</div>
+<div class="note">The package must already be loaded. <span class="path">importGlobal()</span> does not load the package itself.</div>
 
-<h2 id="versions">Versions and subpaths</h2>
-<p>You can request a particular package version or package subpath.</p>
-<pre><span class="kw">const</span> exact = <span class="kw">await</span> importPackage(<span class="str">"three@0.180.0"</span>);
-<span class="kw">const</span> helper = <span class="kw">await</span> importPackage(<span class="str">"some-package/helpers"</span>);
-<span class="kw">const</span> both = <span class="kw">await</span> importPackage(<span class="str">"some-package@1.2.3/helpers"</span>);</pre>
-<p>The loader understands common version ranges such as exact versions, major/minor versions, wildcards, <span class="path">^</span>, <span class="path">~</span>, and comparison expressions.</p>
+<h2 id="releases">Releases</h2>
+<p>Browser-ready ARCH.js builds live in the <span class="path">releases/</span> directory.</p>
+<pre>releases/
+├── latest.js
+├── v0.1.0-alpha.js
+└── v0.1.1-alpha.js</pre>
+<p><span class="path">releases/latest.js</span> is the current development build. It can change as ARCH.js evolves.</p>
+<p>For a stable reference to a particular release, use its versioned file instead:</p>
+<pre>&lt;script src=<span class="str">"https://chibbit-99.github.io/arch.js/releases/v0.1.1-alpha.js"</span>&gt;&lt;/script&gt;</pre>
+<p>Versioned release files are generated when a version tag is created, so projects can either follow the latest build or deliberately pin themselves to a specific release.</p>
+<div class="note">ARCH.js is currently at <strong>v0.1.1-alpha</strong>. It is still experimental software, and the API and architecture may change between releases.</div>
+<div class="demo"><a class="button" href="https://github.com/Chibbit-99/arch.js/releases">View releases on GitHub ↗</a></div>
 
 <h2 id="debug">Debugging</h2>
-<p>Open your browser's developer console to see ARCH.js startup messages. Runtime and package-loader messages use the <span class="path">[ARCH]</span> prefix.</p>
-<pre>console.log(ARCH);
-
-<span class="kw">const</span> three = <span class="kw">await</span> importPackage(<span class="str">"three"</span>);
+<p>Open the browser developer console to see ARCH.js startup and package-loader messages. Runtime messages use the <span class="path">[ARCH]</span> prefix.</p>
+<pre><span class="kw">const</span> three = <span class="kw">await</span> importPackage(<span class="str">"three"</span>);
 console.log(three);</pre>
-<p>The global <span class="path">ARCH</span> object exposes runtime state useful for debugging, including loaded package/module caches.</p>
+<p>The runtime also exposes <span class="path">ARCH</span> for inspection while debugging.</p>
 
 <h2 id="examples">Examples</h2>
 <div class="grid">
-<div class="card"><div class="path">demo/arch/</div><p>The minimal example. Use it as a starting point for understanding the basic ARCH.js project layout.</p><div class="demo"><a class="button" href="../demo/">Open demo ↗</a></div></div>
-<div class="card"><div class="path">demo/threejs/</div><p>A complete example using <span class="path">importPackage("three")</span> and building a browser 3D scene.</p><div class="demo"><a class="button primary" href="../demo/threejs/">Open Three.js demo ↗</a></div></div>
+  <div class="card">
+    <div class="path">demo/</div>
+    <p>A minimal ARCH.js project showing the basic configuration and runtime flow.</p>
+    <div class="demo"><a class="button" href="../demo/">Open demo ↗</a></div>
+  </div>
+  <div class="card">
+    <div class="path">demo/threejs/</div>
+    <p>A complete browser example using <span class="path">importPackage("three")</span> to build a 3D scene.</p>
+    <div class="demo"><a class="button primary" href="../demo/threejs/">Open Three.js demo ↗</a></div>
+  </div>
 </div>
 
-<h2>What ARCH.js does for you</h2>
-<p>You provide the HTML page, configuration, optional initialization, and application code. ARCH.js handles the startup sequence and, when <span class="path">npmloader.js</span> is enabled, the browser-side work needed to turn an NPM package into something your application can use.</p>
+<h2>What ARCH.js handles</h2>
+<p>You provide the HTML page, project configuration, optional initialization, and application code. ARCH.js handles the runtime startup sequence and, when <span class="path">npmloader.js</span> is enabled, the browser-side package loading needed to bring supported NPM packages into the project.</p>
 
-<div class="demo"><a class="button primary" href="../">Back to ARCH.js</a><a class="button" href="https://github.com/Chibbit-99/arch.js">View source on GitHub ↗</a></div>
+<div class="demo">
+  <a class="button primary" href="../">Back to ARCH.js</a>
+  <a class="button" href="https://github.com/Chibbit-99/arch.js">View source on GitHub ↗</a>
+</div>
 </main>
 </div>
-<footer><div class="wrap"><span>ARCH.js</span><span>Built for experimentation.</span></div></footer>
+
+<footer>
+  <div class="wrap"><span>ARCH.js</span><span>JavaScript, but different.</span></div>
+</footer>
 </body>
 </html>
