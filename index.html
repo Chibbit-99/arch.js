@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARC.js — JavaScript, but different.</title>
+    <title>ARCH.js — JavaScript, but different.</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         :root { --bg:#08090b; --surface:#101216; --surface-2:#0c0e11; --border:#22252b; --text:#f2f3f5; --muted:#8b909b; --accent:#c6613f; }
@@ -59,29 +59,29 @@
 </head>
 <body>
     <nav class="container">
-        <a href="#" class="logo"><div class="logo-mark">A</div>ARC.js</a>
+        <a href="#" class="logo"><div class="logo-mark">A</div>ARCH.js</a>
         <div class="nav-links">
             <a href="#about">About</a>
             <a href="#features">Features</a>
             <a href="#comparison">Comparison</a>
             <a href="#structure">Structure</a>
             <a href="docs/">Docs</a>
-            <a href="https://chibbit-99.github.io/arc.js/demo/threejs/">Three.js Demo ↗</a>
-            <a href="https://github.com/Chibbit-99/arc.js">GitHub ↗</a>
+            <a href="https://chibbit-99.github.io/arch.js/demo/threejs/">Three.js Demo ↗</a>
+            <a href="https://github.com/Chibbit-99/arch.js">GitHub ↗</a>
         </div>
     </nav>
     <main>
         <section class="hero container"><div>
             <h1>JavaScript.<br><em>Reimagined.</em></h1>
-            <p>ARC.js is a lightweight browser runtime for dynamically loading modules, importing NPM packages, and experimenting with what JavaScript can do.</p>
+            <p>ARCH.js is a lightweight browser runtime for dynamically loading modules, importing NPM packages, and experimenting with what JavaScript can do.</p>
             <div class="buttons">
-                <a class="button primary" href="https://github.com/Chibbit-99/arc.js">View on GitHub</a>
+                <a class="button primary" href="https://github.com/Chibbit-99/arch.js">View on GitHub</a>
                 <a class="button" href="docs/">Read the docs</a>
-                <a class="button" href="https://chibbit-99.github.io/arc.js/demo/threejs/">Try the Three.js demo</a>
-                <a class="button" href="#features">Explore ARC.js</a>
+                <a class="button" href="https://chibbit-99.github.io/arch.js/demo/threejs/">Try the Three.js demo</a>
+                <a class="button" href="#features">Explore ARCH.js</a>
             </div>
             <div class="code"><div class="code-bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-                <pre><span class="comment">// Import an NPM package directly through ARC.js.</span>
+                <pre><span class="comment">// Import an NPM package directly through ARCH.js.</span>
 
 <span class="keyword">const</span> three = <span class="keyword">await</span> importPackage(<span class="string">"three"</span>);
 
@@ -91,15 +91,15 @@ console.log(three);</pre>
         </div></section>
         <section class="features container" id="features"><h2>Built around the runtime.</h2><div class="grid">
             <div class="card"><h3>Dynamic modules</h3><p>Load JavaScript modules at runtime instead of rebuilding your entire application.</p></div>
-            <div class="card"><h3>NPM in the browser</h3><p>Bring packages from the NPM ecosystem into your browser environment with ARC.js's package loader.</p></div>
+            <div class="card"><h3>NPM in the browser</h3><p>Bring packages from the NPM ecosystem into your browser environment with ARCH.js's package loader.</p></div>
             <div class="card"><h3>Config-driven loading</h3><p>Use config.json to declare runtime modules and application entry points without hard-wiring everything into one script.</p></div>
-            <div class="card"><h3>Extensible modules</h3><p>ARC.js loads functionality through modules, keeping the core runtime separate from optional features.</p></div>
+            <div class="card"><h3>Extensible modules</h3><p>ARCH.js loads functionality through modules, keeping the core runtime separate from optional features.</p></div>
             <div class="card"><h3>Browser-first</h3><p>Run the runtime directly from a static site. No Node.js server is required just to experiment with it.</p></div>
-            <div class="card"><h3>Built to experiment</h3><p>ARC.js is intentionally small and flexible, making it a place to try ideas around browser-side JavaScript runtimes.</p></div>
+            <div class="card"><h3>Built to experiment</h3><p>ARCH.js is intentionally small and flexible, making it a place to try ideas around browser-side JavaScript runtimes.</p></div>
         </div></section>
         <section class="features container" id="comparison"><h2>How it compares.</h2><div class="comparison">
             <table>
-                <thead><tr><th>Capability</th><th>NPM build</th><th>CDN</th><th>ARC.js</th></tr></thead>
+                <thead><tr><th>Capability</th><th>NPM build</th><th>CDN</th><th>ARCH.js</th></tr></thead>
                 <tbody>
                     <tr><td>Automatically resolve latest NPM version at runtime</td><td><span class="cross">✕</span></td><td><span class="cross">✕</span></td><td><span class="check">✓</span></td></tr>
                     <tr><td>Easy to get started</td><td><span class="cross">✕</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
@@ -114,17 +114,17 @@ console.log(three);</pre>
             </table>
         </div></section>
         <section class="features container" id="structure"><h2>How the project fits together.</h2><div class="architecture">
-            <div class="file"><div class="file-name">main.js</div><p>The main ARC.js runtime. It loads the configuration, discovers the requested modules, and starts the configured JavaScript entry point.</p></div>
+            <div class="file"><div class="file-name">main.js</div><p>The main ARCH.js runtime. It loads the configuration, discovers the requested modules, and starts the configured JavaScript entry point.</p></div>
             <div class="file"><div class="file-name">module/npmloader.js</div><p>The NPM loader module. It provides the package-loading layer used by importPackage(), including browser-side package extraction and loading.</p></div>
-            <div class="file"><div class="file-name">demo/arc/</div><p>A minimal example showing the basic ARC.js project layout: config.json, init.js, and a src entry point.</p></div>
+            <div class="file"><div class="file-name">demo/arch/</div><p>A minimal example showing the basic ARCH.js project layout: config.json, init.js, and a src entry point.</p></div>
             <div class="file"><div class="file-name">demo/threejs/</div><p>A larger example using the same runtime to load Three.js from NPM and run a browser-based 3D demo.</p></div>
         </div></section>
         <section class="features container"><div class="demo">
-            <div class="demo-box">ARC.js + Three.js</div>
-            <div class="demo-copy"><h2>See it running.</h2><p>The Three.js example is a real project inside the ARC.js repository. It uses ARC.js to load the <code>three</code> package and build a browser 3D scene.</p><a class="demo-link" href="https://chibbit-99.github.io/arc.js/demo/threejs/">Open the Three.js demo ↗</a></div>
+            <div class="demo-box">ARCH.js + Three.js</div>
+            <div class="demo-copy"><h2>See it running.</h2><p>The Three.js example is a real project inside the ARCH.js repository. It uses ARCH.js to load the <code>three</code> package and build a browser 3D scene.</p><a class="demo-link" href="https://chibbit-99.github.io/arch.js/demo/threejs/">Open the Three.js demo ↗</a></div>
         </div></section>
-        <section class="features container" id="about"><h2>What if the browser<br>could do more?</h2><p class="about-copy">ARC.js is an experiment in giving browser JavaScript a more flexible runtime. The project is built around a small core, optional runtime modules, configuration-driven startup, and a package loader that brings parts of the NPM ecosystem into the browser.</p></section>
+        <section class="features container" id="about"><h2>What if the browser<br>could do more?</h2><p class="about-copy">ARCH.js is an experiment in giving browser JavaScript a more flexible runtime. The project is built around a small core, optional runtime modules, configuration-driven startup, and a package loader that brings parts of the NPM ecosystem into the browser.</p></section>
     </main>
-    <footer><div class="container"><span>ARC.js</span><span>Built for experimentation.</span></div></footer>
+    <footer><div class="container"><span>ARCH.js</span><span>Built for experimentation.</span></div></footer>
 </body>
 </html>
