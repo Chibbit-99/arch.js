@@ -68,7 +68,7 @@ ARCH.js keeps its browser-ready runtime builds in `releases/`.
 releases/
 ├── latest.js
 ├── v0.1.0-alpha.js
-└── v0.2.0-alpha.js
+└── v0.1.1-alpha.js
 ```
 
 `latest.js` is the file updated for ongoing development. When a version is released, a copy is created with that version's tag name, giving that release a fixed runtime file that does not change when `latest.js` is updated.
@@ -86,6 +86,24 @@ or for a pinned release:
 ```
 
 This lets projects either follow the latest ARCH.js build or deliberately pin themselves to a specific release.
+
+## Changelog
+
+### v0.1.1-alpha
+
+- Added the `releases/` architecture for browser-ready runtime builds.
+- Added versioned release files alongside `releases/latest.js`.
+- Updated demos to load ARCH.js from `releases/latest.js`.
+- Added automatic release-file generation through GitHub Actions when a version tag is created.
+- Updated the README to document the new release structure.
+
+### v0.1.0-alpha
+
+- Initial alpha release of ARCH.js.
+- Browser runtime with project configuration and JavaScript loading.
+- NPM package loading through `importPackage()`.
+- Global export support through `importGlobal()`.
+- Modular runtime architecture.
 
 ## Import an NPM package
 
