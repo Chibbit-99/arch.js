@@ -1,5 +1,5 @@
 (async () => {
-    console.log("=== ARC Minecraft Scene ===");
+    console.log("=== ARCH Minecraft Scene ===");
 
     const THREE = await importPackage("three");
 
