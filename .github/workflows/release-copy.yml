@@ -1,0 +1,32 @@
+name: Create Release File
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release-file:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create versioned release file
+        run: |
+          cp releases/latest.js "releases/${GITHUB_REF_NAME}.js"
+
+      - name: Commit release file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "releases/${GITHUB_REF_NAME}.js"
+
+          git commit -m "Add ${GITHUB_REF_NAME} release file" || echo "Nothing to commit"
+
+          git push origin HEAD:main
