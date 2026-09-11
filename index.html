@@ -1,130 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARCH.js — JavaScript, but different.</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        :root { --bg:#08090b; --surface:#101216; --surface-2:#0c0e11; --border:#22252b; --text:#f2f3f5; --muted:#8b909b; --accent:#c6613f; }
-        html { scroll-behavior:smooth; }
-        body { min-height:100vh; background:radial-gradient(circle at 50% -20%,#1d2028 0%,transparent 45%),var(--bg); color:var(--text); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-        a { color:inherit; text-decoration:none; }
-        .container { width:min(1100px,calc(100% - 40px)); margin:auto; }
-        nav { height:76px; display:flex; align-items:center; justify-content:space-between; }
-        .logo { display:flex; align-items:center; gap:10px; font-weight:700; font-size:19px; letter-spacing:-.5px; }
-        .logo-mark { width:30px; height:30px; display:grid; place-items:center; border:1px solid #383c44; border-radius:8px; color:var(--accent); font-family:monospace; font-weight:bold; }
-        .nav-links { display:flex; gap:24px; color:var(--muted); font-size:14px; }
-        .nav-links a:hover { color:var(--text); }
-        .hero { min-height:650px; display:flex; align-items:center; justify-content:center; text-align:center; padding:80px 0; }
-        h1 { max-width:850px; margin:auto; font-size:clamp(52px,8vw,92px); line-height:.95; letter-spacing:-5px; font-weight:800; }
-        h1 em { color:var(--accent); font-style:normal; }
-        .hero p { max-width:650px; margin:28px auto 35px; color:var(--muted); font-size:18px; line-height:1.65; }
-        .buttons { display:flex; justify-content:center; gap:12px; flex-wrap:wrap; }
-        .button { padding:12px 19px; border-radius:8px; border:1px solid var(--border); font-size:14px; font-weight:600; transition:.2s; }
-        .button.primary { background:var(--text); color:#08090b; border-color:var(--text); }
-        .button:hover { transform:translateY(-2px); border-color:#444952; }
-        .button.primary:hover { opacity:.9; }
-        .code { margin:35px auto 0; width:min(650px,100%); text-align:left; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; overflow:hidden; box-shadow:0 25px 70px rgba(0,0,0,.35); }
-        .code-bar { height:35px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:6px; padding:0 12px; }
-        .dot { width:8px; height:8px; border-radius:50%; background:#343840; }
-        pre { padding:22px; overflow-x:auto; font-size:14px; line-height:1.7; font-family:"JetBrains Mono",Consolas,monospace; color:#c9cdd4; }
-        .keyword { color:#c6613f; } .string { color:#a8c58b; } .comment { color:#5d626d; }
-        .features { padding:100px 0; }
-        h2 { font-size:38px; letter-spacing:-1.5px; margin-bottom:45px; }
-        .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:15px; }
-        .card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:25px; }
-        .card h3 { font-size:17px; margin-bottom:9px; } .card p { color:var(--muted); font-size:14px; line-height:1.6; }
-        .comparison { overflow-x:auto; background:var(--surface); border:1px solid var(--border); border-radius:10px; }
-        .comparison table { width:100%; min-width:700px; border-collapse:collapse; }
-        .comparison th, .comparison td { padding:17px 19px; border-bottom:1px solid var(--border); text-align:center; font-size:14px; }
-        .comparison th { color:var(--text); font-size:13px; font-weight:700; }
-        .comparison th:first-child, .comparison td:first-child { text-align:left; }
-        .comparison tbody tr:last-child td { border-bottom:0; }
-        .comparison td:first-child { color:var(--muted); font-weight:600; }
-        .check { color:#a8c58b; font-size:18px; font-weight:800; }
-        .cross { color:#8b909b; font-size:18px; font-weight:800; }
-        .architecture { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
-        .file { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:22px; }
-        .file-name { font-family:"JetBrains Mono",Consolas,monospace; font-size:14px; color:var(--text); margin-bottom:10px; }
-        .file p { color:var(--muted); font-size:14px; line-height:1.6; }
-        .demo { display:grid; grid-template-columns:1.2fr .8fr; gap:30px; align-items:center; }
-        .demo-box { min-height:230px; border:1px solid var(--border); border-radius:10px; background:linear-gradient(135deg,#11141a,#0a0b0e); display:flex; align-items:center; justify-content:center; font-family:"JetBrains Mono",Consolas,monospace; color:var(--muted); font-size:14px; }
-        .demo-copy p { color:var(--muted); line-height:1.8; font-size:16px; margin-bottom:22px; }
-        .demo-link { color:var(--accent); font-size:14px; font-weight:600; } .demo-link:hover { text-decoration:underline; }
-        .about-copy { max-width:700px; color:var(--muted); line-height:1.8; font-size:17px; }
-        footer { border-top:1px solid var(--border); padding:30px 0; color:var(--muted); font-size:13px; } footer .container { display:flex; justify-content:space-between; }
-        @media (max-width:700px) { .nav-links{display:none;} h1{letter-spacing:-3px;} .grid,.architecture,.demo{grid-template-columns:1fr;} .hero{min-height:570px;} }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCH.js — JavaScript, but different.</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13' font-family='monospace' fill='%23e8b84b'>λ</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d0f12;--bg-elevated:#14171b;--bg-code:#0a0c0e;--border:#262b31;--border-light:#333a42;--text:#d6dde3;--text-muted:#8b98a5;--text-dim:#5c6670;--accent:#e8b84b;--accent-dim:rgba(232,184,75,.12);--font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--font-mono:"SF Mono","Fira Code","Cascadia Code",Consolas,"Liberation Mono",monospace;--radius:6px;--max-width:1100px}
+html{scroll-behavior:smooth}body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}a{color:var(--text);text-decoration:none;border-bottom:1px solid transparent;transition:border-color .15s ease,color .15s ease}a:hover{color:#fff;border-bottom-color:var(--accent)}code,pre{font-family:var(--font-mono);font-size:.9em}pre{background:var(--bg-code);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem 1.4rem;overflow-x:auto;line-height:1.6;position:relative}pre code{background:none;padding:0;font-size:.9rem;color:#c9d1d9}.container{max-width:var(--max-width);margin:0 auto;padding:0 2rem}section{padding:4.5rem 0;border-bottom:1px solid var(--border)}section:last-of-type{border-bottom:none}h2{font-size:1.9rem;font-weight:650;letter-spacing:-.02em;margin-bottom:1.2rem;color:#e8edf2}h3{font-size:1.1rem;font-weight:600;margin-bottom:.6rem;color:#d6dde3}p{color:var(--text-muted);max-width:65ch;font-size:1rem}
+.token.comment,.token.prolog,.token.doctype,.token.cdata{color:#5c6670;font-style:italic}.token.punctuation{color:#8b98a5}.token.tag,.token.attr-name,.token.namespace{color:#e8b84b}.token.attr-value,.token.string,.token.char{color:#a5c261}.token.keyword,.token.operator,.token.boolean{color:#cc7832}.token.function,.token.method{color:#ffc66d}.token.number,.token.constant{color:#6897bb}
+.site-header{border-bottom:1px solid var(--border);background:rgba(13,15,18,.9);backdrop-filter:blur(8px);position:sticky;top:0;z-index:100}.header-inner{display:flex;align-items:center;justify-content:space-between;height:56px;max-width:var(--max-width);margin:0 auto;padding:0 2rem}.logo{font-family:var(--font-mono);font-weight:700;font-size:1.1rem;letter-spacing:-.02em;color:#e8edf2;border-bottom:none}.logo:hover{border-bottom:none;color:#fff}.nav-links{display:flex;gap:1.8rem;list-style:none}.nav-links a{font-size:.9rem;color:var(--text-muted);border-bottom:none;padding:.25rem 0;position:relative}.nav-links a:hover,.nav-links a.active{color:#fff;border-bottom:1px solid var(--accent)}
+.hero{padding:5rem 0 4rem;border-bottom:1px solid var(--border)}.hero-grid{display:grid;grid-template-columns:1fr 1.1fr;gap:3.5rem;align-items:start}.hero-title{font-size:3.2rem;font-weight:700;letter-spacing:-.03em;line-height:1.05;margin-bottom:.6rem;font-family:var(--font-mono)}.hero-subtitle{font-size:1.4rem;font-weight:500;color:var(--text-muted);margin-bottom:1.5rem}.hero-desc{font-size:1rem;color:var(--text-muted);margin-bottom:2.2rem;max-width:50ch}.hero-actions{display:flex;gap:1rem;margin-bottom:0}.btn{display:inline-block;padding:.65rem 1.5rem;border-radius:var(--radius);font-size:.95rem;font-weight:500;border:1px solid var(--border-light);background:transparent;color:var(--text);cursor:pointer;transition:all .15s ease;border-bottom:1px solid var(--border-light)}.btn:hover{background:var(--bg-elevated);border-color:var(--text-dim);color:#fff;border-bottom:1px solid var(--text-dim)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#0d0f12;font-weight:600}.btn-primary:hover{background:#f0c96a;border-color:#f0c96a;color:#0d0f12}.hero-code{background:var(--bg-code);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:.5rem}.hero-code .code-header{display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem;background:var(--bg-elevated);border-bottom:1px solid var(--border);font-size:.75rem;color:var(--text-dim);font-family:var(--font-mono)}.hero-code pre{border:none;border-radius:0;padding:1.4rem 1.6rem;margin:0}.copy-btn{background:none;border:1px solid var(--border);color:var(--text-dim);font-size:.7rem;padding:.2rem .6rem;border-radius:4px;cursor:pointer;font-family:var(--font-mono);transition:all .15s ease}.copy-btn:hover{color:var(--text);border-color:var(--text-dim)}
+.why-grid{display:grid;grid-template-columns:1fr 1fr;gap:3.5rem;align-items:center}.why-grid p{font-size:1.05rem}.flow-diagram{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:2rem 1.5rem;font-family:var(--font-mono);font-size:.95rem;line-height:2.2;display:flex;flex-direction:column;align-items:center}.flow-diagram .node{color:var(--text);padding:.3rem 1rem;border:1px solid var(--border);border-radius:4px;background:var(--bg-code);min-width:140px;text-align:center}.flow-diagram .node-accent{color:var(--accent);border-color:var(--accent);background:var(--accent-dim);font-weight:600}.flow-diagram .arrow{color:var(--text-dim);font-size:1.2rem;line-height:1.2}
+.feature-list{display:flex;flex-direction:column;gap:3rem}.feature-item{display:grid;grid-template-columns:1fr 1fr;gap:2.5rem;align-items:start;padding-left:1.5rem;border-left:2px solid var(--border)}.feature-item:hover{border-left-color:var(--accent)}.feature-item .feature-desc h3{margin-bottom:.6rem}.feature-item .feature-desc p{font-size:.95rem}.feature-item .feature-code{background:var(--bg-code);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem 1.4rem;overflow-x:auto}.feature-item .feature-code pre{border:none;padding:0;background:none}
+.examples-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-top:1.5rem}.example-card{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;transition:border-color .15s ease}.example-card:hover{border-color:var(--border-light)}.example-card h3{font-family:var(--font-mono);font-size:1rem;margin-bottom:.6rem}.example-card p{font-size:.9rem;margin-bottom:1rem}.example-card .example-link{font-size:.9rem;color:var(--accent);border-bottom:1px solid transparent}.example-card .example-link:hover{border-bottom-color:var(--accent)}
+.how-grid{display:grid;grid-template-columns:1fr 1fr;gap:3.5rem;align-items:start}.how-flow{background:var(--bg-code);border:1px solid var(--border);border-radius:var(--radius);padding:2rem 1.5rem;font-family:var(--font-mono);font-size:.9rem;line-height:2.2;display:flex;flex-direction:column;align-items:center}.how-flow .node{color:var(--text);padding:.3rem 1rem;border:1px solid var(--border);border-radius:4px;background:var(--bg-elevated);min-width:180px;text-align:center}.how-flow .node-accent{color:var(--accent);border-color:var(--accent);background:var(--accent-dim);font-weight:600}.how-flow .node-dim{color:var(--text-dim);border-style:dashed}.how-flow .arrow{color:var(--text-dim);font-size:1.2rem;line-height:1.2}
+.code-section{text-align:left}.code-section .code-block{background:var(--bg-code);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin:1.5rem 0;overflow-x:auto}.code-section .code-block pre{border:none;padding:0;background:none}.code-section .point{font-size:1.2rem;font-weight:600;color:#e8edf2;margin-top:1rem}
+.status-box{background:var(--bg-elevated);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:1.5rem 2rem;max-width:70ch}.status-box p{margin-bottom:.5rem}.status-box .version{font-family:var(--font-mono);color:var(--accent);font-weight:600}.status-box a{color:var(--text);border-bottom:1px solid var(--border-light)}.status-box a:hover{border-bottom-color:var(--accent)}
+.site-footer{border-top:1px solid var(--border);padding:2.5rem 0;margin-top:2rem}.footer-inner{display:flex;align-items:center;justify-content:space-between;max-width:var(--max-width);margin:0 auto;padding:0 2rem;flex-wrap:wrap;gap:1rem}.footer-left{display:flex;align-items:baseline;gap:1rem}.footer-logo{font-family:var(--font-mono);font-weight:700;font-size:1rem}.footer-tagline{font-size:.85rem;color:var(--text-dim)}.footer-links{display:flex;gap:1.5rem;font-size:.85rem}.footer-links a{color:var(--text-muted);border-bottom:none}.footer-links a:hover{color:#fff;border-bottom:1px solid var(--accent)}.footer-version{font-family:var(--font-mono);font-size:.8rem;color:var(--text-dim);border:1px solid var(--border);padding:.2rem .6rem;border-radius:4px}
+@media(max-width:900px){.hero-grid,.why-grid,.how-grid,.feature-item{grid-template-columns:1fr;gap:2rem}.hero{padding:3.5rem 0 2.5rem}.hero-title{font-size:2.4rem}.header-inner,.footer-inner{padding:0 1.5rem}.nav-links{gap:1rem}}@media(max-width:600px){.nav-links{display:none}.hero-actions{flex-direction:column;align-items:flex-start}.btn{width:100%;text-align:center}}
+</style>
 </head>
 <body>
-    <nav class="container">
-        <a href="#" class="logo"><div class="logo-mark">A</div>ARCH.js</a>
-        <div class="nav-links">
-            <a href="#about">About</a>
-            <a href="#features">Features</a>
-            <a href="#comparison">Comparison</a>
-            <a href="#structure">Structure</a>
-            <a href="docs/">Docs</a>
-            <a href="https://chibbit-99.github.io/arch.js/demo/threejs/">Three.js Demo ↗</a>
-            <a href="https://github.com/Chibbit-99/arch.js">GitHub ↗</a>
-        </div>
-    </nav>
-    <main>
-        <section class="hero container"><div>
-            <h1>JavaScript.<br><em>Reimagined.</em></h1>
-            <p>ARCH.js is a lightweight browser runtime for dynamically loading modules, importing NPM packages, and experimenting with what JavaScript can do.</p>
-            <div class="buttons">
-                <a class="button primary" href="https://github.com/Chibbit-99/arch.js">View on GitHub</a>
-                <a class="button" href="docs/">Read the docs</a>
-                <a class="button" href="https://chibbit-99.github.io/arch.js/demo/threejs/">Try the Three.js demo</a>
-                <a class="button" href="#features">Explore ARCH.js</a>
-            </div>
-            <div class="code"><div class="code-bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-                <pre><span class="comment">// Import an NPM package directly through ARCH.js.</span>
+<header class="site-header"><div class="header-inner"><a href="#" class="logo">ARCH.js</a><nav><ul class="nav-links"><li><a href="#why" class="active">Why</a></li><li><a href="#features">Capabilities</a></li><li><a href="#examples">Examples</a></li><li><a href="#how">How it works</a></li><li><a href="https://github.com/Chibbit-99/arch.js" target="_blank" rel="noopener">GitHub</a></li><li><a href="#releases">Releases</a></li></ul></nav></div></header>
+<section class="hero"><div class="container hero-grid"><div><h1 class="hero-title">ARCH.js</h1><p class="hero-subtitle">JavaScript, but different.</p><p class="hero-desc">A browser-side runtime and package loader for running more of the JavaScript ecosystem directly in the browser.</p><div class="hero-actions"><a href="#why" class="btn btn-primary">Get Started</a><a href="https://github.com/Chibbit-99/arch.js" target="_blank" rel="noopener" class="btn">GitHub</a></div></div><div class="hero-code"><div class="code-header"><span>quick-start.html</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div><pre><code class="language-html"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token string">"https://chibbit-99.github.io/arch.js/releases/latest.js"</span></span><span class="token punctuation">&gt;</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">&gt;</span></span>
 
-<span class="keyword">const</span> three = <span class="keyword">await</span> importPackage(<span class="string">"three"</span>);
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">&gt;</span></span>
+  <span class="token keyword">await</span> <span class="token function">importPackage</span><span class="token punctuation">(</span><span class="token string">"three"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">&gt;</span></span></code></pre></div></div></section>
+<section id="why"><div class="container why-grid"><div><h2>Why ARCH?</h2><p>Browser JavaScript is great until you want to use packages. For small projects, setting up a complete package and build pipeline can be more work than the project itself. ARCH.js takes a different approach: load packages from the browser and keep the project simple.</p></div><div class="flow-diagram"><div class="node">Browser</div><div class="arrow">↓</div><div class="node node-accent">ARCH.js</div><div class="arrow">↓</div><div class="node">Package</div><div class="arrow">↓</div><div class="node">Your code</div></div></div></section>
+<section id="features"><div class="container"><h2>Capabilities</h2><div class="feature-list"><div class="feature-item"><div class="feature-desc"><h3>Package loading</h3><p>Load packages from the browser without setting up a traditional build pipeline.</p></div><div class="feature-code"><pre><code class="language-js"><span class="token keyword">await</span> <span class="token function">importPackage</span><span class="token punctuation">(</span><span class="token string">"tesseract.js"</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre></div></div><div class="feature-item"><div class="feature-desc"><h3>Caching</h3><p>Packages can be cached so repeated loads don't need to download everything again.</p></div><div class="feature-code"><pre><code class="language-js"><span class="token comment">// cached after first load</span>
+<span class="token keyword">await</span> <span class="token function">importPackage</span><span class="token punctuation">(</span><span class="token string">"three"</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre></div></div><div class="feature-item"><div class="feature-desc"><h3>Browser-first</h3><p>ARCH.js is designed around browser projects rather than trying to reproduce an entire Node.js environment.</p></div><div class="feature-code"><pre><code class="language-js"><span class="token comment">// browser globals + packages</span>
+<span class="token comment">// without a Node.js runtime</span></code></pre></div></div><div class="feature-item"><div class="feature-desc"><h3>Globals when needed</h3><p>Packages that don't fit normal import behavior can expose selected exports.</p></div><div class="feature-code"><pre><code class="language-js"><span class="token keyword">await</span> <span class="token function">importPackage</span><span class="token punctuation">(</span><span class="token string">"biggames.js"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">importGlobal</span><span class="token punctuation">(</span><span class="token string">"biggames.js"</span><span class="token punctuation">,</span> <span class="token string">"PetSimulator99"</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre></div></div></div></div></section>
+<section id="examples"><div class="container"><h2>It actually runs things.</h2><p>Packages and projects that have been tested with ARCH.js:</p><div class="examples-grid"><div class="example-card"><h3>Three.js</h3><p>3D rendering in the browser. ARCH.js has a working Three.js demo.</p><a href="https://chibbit-99.github.io/arch.js/demo/threejs/" target="_blank" rel="noopener" class="example-link">View the Three.js demo →</a></div><div class="example-card"><h3>Tesseract.js</h3><p>OCR directly in the browser. Loaded and run without a traditional bundler.</p></div><div class="example-card"><h3>Other packages</h3><p>Additional libraries and scripts have been tested through ARCH.js's package-loading system.</p></div></div></div></section>
+<section id="how"><div class="container how-grid"><div><h2>How it works</h2><p>ARCH.js sits between your HTML and the package. It loads the runtime modules it needs, resolves packages, and prepares them for use by browser code.</p></div><div class="how-flow"><div class="node">Your HTML</div><div class="arrow">↓</div><div class="node node-accent">ARCH.js</div><div class="arrow">↓</div><div class="node">Package loader</div><div class="arrow">↓</div><div class="node">Package resolution</div><div class="arrow">↓</div><div class="node node-dim">Browser-compatible package</div></div></div></section>
+<section id="code"><div class="container code-section"><h2>Less setup. More code.</h2><p>Here's how small an ARCH.js project can be:</p><div class="code-block"><pre><code class="language-html"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token string">"https://chibbit-99.github.io/arch.js/releases/latest.js"</span></span><span class="token punctuation">&gt;</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">&gt;</span></span>
 
-<span class="comment">// Packages can then be used by your browser code.</span>
-console.log(three);</pre>
-            </div>
-        </div></section>
-        <section class="features container" id="features"><h2>Built around the runtime.</h2><div class="grid">
-            <div class="card"><h3>Dynamic modules</h3><p>Load JavaScript modules at runtime instead of rebuilding your entire application.</p></div>
-            <div class="card"><h3>NPM in the browser</h3><p>Bring packages from the NPM ecosystem into your browser environment with ARCH.js's package loader.</p></div>
-            <div class="card"><h3>Config-driven loading</h3><p>Use config.json to declare runtime modules and application entry points without hard-wiring everything into one script.</p></div>
-            <div class="card"><h3>Extensible modules</h3><p>ARCH.js loads functionality through modules, keeping the core runtime separate from optional features.</p></div>
-            <div class="card"><h3>Browser-first</h3><p>Run the runtime directly from a static site. No Node.js server is required just to experiment with it.</p></div>
-            <div class="card"><h3>Built to experiment</h3><p>ARCH.js is intentionally small and flexible, making it a place to try ideas around browser-side JavaScript runtimes.</p></div>
-        </div></section>
-        <section class="features container" id="comparison"><h2>How it compares.</h2><div class="comparison">
-            <table>
-                <thead><tr><th>Capability</th><th>NPM build</th><th>CDN</th><th>ARCH.js</th></tr></thead>
-                <tbody>
-                    <tr><td>Automatically resolve latest NPM version at runtime</td><td><span class="cross">✕</span></td><td><span class="cross">✕</span></td><td><span class="check">✓</span></td></tr>
-                    <tr><td>Easy to get started</td><td><span class="cross">✕</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
-                    <tr><td>Hostable on static sites</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
-                    <tr><td>No separate build step</td><td><span class="cross">✕</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
-                    <tr><td>Import directly by NPM package specifier</td><td><span class="check">✓</span></td><td><span class="cross">✕</span></td><td><span class="check">✓</span></td></tr>
-                    <tr><td>Resolve package dependencies automatically</td><td><span class="check">✓</span></td><td><span class="cross">✕</span></td><td><span class="check">✓</span></td></tr>
-                    <tr><td>Load packages directly at runtime</td><td><span class="cross">✕</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
-                    <tr><td>Version pinning</td><td><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
-                    <tr><td>No rebuild when dependencies change</td><td><span class="cross">✕</span></td><td><span class="check">✓</span></td><td><span class="check">✓</span></td></tr>
-                </tbody>
-            </table>
-        </div></section>
-        <section class="features container" id="structure"><h2>How the project fits together.</h2><div class="architecture">
-            <div class="file"><div class="file-name">main.js</div><p>The main ARCH.js runtime. It loads the configuration, discovers the requested modules, and starts the configured JavaScript entry point.</p></div>
-            <div class="file"><div class="file-name">module/npmloader.js</div><p>The NPM loader module. It provides the package-loading layer used by importPackage(), including browser-side package extraction and loading.</p></div>
-            <div class="file"><div class="file-name">demo/arch/</div><p>A minimal example showing the basic ARCH.js project layout: config.json, init.js, and a src entry point.</p></div>
-            <div class="file"><div class="file-name">demo/threejs/</div><p>A larger example using the same runtime to load Three.js from NPM and run a browser-based 3D demo.</p></div>
-        </div></section>
-        <section class="features container"><div class="demo">
-            <div class="demo-box">ARCH.js + Three.js</div>
-            <div class="demo-copy"><h2>See it running.</h2><p>The Three.js example is a real project inside the ARCH.js repository. It uses ARCH.js to load the <code>three</code> package and build a browser 3D scene.</p><a class="demo-link" href="https://chibbit-99.github.io/arch.js/demo/threejs/">Open the Three.js demo ↗</a></div>
-        </div></section>
-        <section class="features container" id="about"><h2>What if the browser<br>could do more?</h2><p class="about-copy">ARCH.js is an experiment in giving browser JavaScript a more flexible runtime. The project is built around a small core, optional runtime modules, configuration-driven startup, and a package loader that brings parts of the NPM ecosystem into the browser.</p></section>
-    </main>
-    <footer><div class="container"><span>ARCH.js</span><span>Built for experimentation.</span></div></footer>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">&gt;</span></span>
+  <span class="token keyword">await</span> <span class="token function">importPackage</span><span class="token punctuation">(</span><span class="token string">"three"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  <span class="token comment">// start building</span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">&gt;</span></span></code></pre></div><p class="point">That's it. No npm init. No webpack. No config.</p></div></section>
+<section id="releases"><div class="container"><h2>Status</h2><div class="status-box"><p>ARCH.js is currently <span class="version">v0.1.1-alpha</span>. It is experimental software, and the API and architecture may change between releases.</p><p>Check the <a href="https://github.com/Chibbit-99/arch.js/releases" target="_blank" rel="noopener">releases</a> and <a href="https://github.com/Chibbit-99/arch.js" target="_blank" rel="noopener">GitHub</a> for updates.</p></div></div></section>
+<footer class="site-footer"><div class="footer-inner"><div class="footer-left"><span class="footer-logo">ARCH.js</span><span class="footer-tagline">JavaScript, but different.</span></div><div class="footer-links"><a href="https://github.com/Chibbit-99/arch.js" target="_blank" rel="noopener">GitHub</a><a href="#why">Why</a><a href="#examples">Demo</a><a href="#releases">Releases</a></div><span class="footer-version">v0.1.1-alpha</span></div></footer>
+<script>
+function copyCode(btn){const pre=btn.closest('.hero-code, .code-block').querySelector('pre');const code=pre.innerText;navigator.clipboard.writeText(code).then(()=>{const original=btn.textContent;btn.textContent='copied';setTimeout(()=>{btn.textContent=original},1500)})}
+const sections=document.querySelectorAll('section[id]');const navLinks=document.querySelectorAll('.nav-links a');window.addEventListener('scroll',()=>{let current='';sections.forEach(section=>{const sectionTop=section.offsetTop-80;if(window.scrollY>=sectionTop)current=section.getAttribute('id')});navLinks.forEach(link=>{link.classList.remove('active');if(link.getAttribute('href')===`#${current}`)link.classList.add('active')})});
+</script>
 </body>
 </html>
