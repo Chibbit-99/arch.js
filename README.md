@@ -14,16 +14,18 @@ It is designed for experimenting with a more flexible browser runtime without ne
 
 ## Quick start
 
-Create a page that loads arch.js:
+Create a page that loads the latest ARCH.js release:
 
 ```html
 <!doctype html>
 <html>
 <body>
-    <script src="https://chibbit-99.github.io/arch.js/main.js"></script>
+    <script src="https://chibbit-99.github.io/arch.js/releases/latest.js"></script>
 </body>
 </html>
 ```
+
+The `releases/latest.js` file is the current development release and may change as ARCH.js is updated. For a fixed release, use its versioned file instead, such as `releases/v0.1.0-alpha.js`.
 
 Then give the page an `arch/` directory:
 
@@ -57,6 +59,33 @@ console.log("Hello from arch.js");
 ```
 
 Open `index.html` through a web server/static host and arch.js will load the configuration and start the project.
+
+## Releases
+
+ARCH.js keeps its browser-ready runtime builds in `releases/`.
+
+```text
+releases/
+├── latest.js
+├── v0.1.0-alpha.js
+└── v0.2.0-alpha.js
+```
+
+`latest.js` is the file updated for ongoing development. When a version is released, a copy is created with that version's tag name, giving that release a fixed runtime file that does not change when `latest.js` is updated.
+
+For example:
+
+```html
+<script src="https://chibbit-99.github.io/arch.js/releases/latest.js"></script>
+```
+
+or for a pinned release:
+
+```html
+<script src="https://chibbit-99.github.io/arch.js/releases/v0.1.0-alpha.js"></script>
+```
+
+This lets projects either follow the latest ARCH.js build or deliberately pin themselves to a specific release.
 
 ## Import an NPM package
 
