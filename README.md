@@ -1,6 +1,6 @@
-# arch.js
+# ARCH.js
 
-arch.js is a lightweight browser runtime for loading project JavaScript from a simple configuration file and importing NPM packages directly in the browser.
+Arch.js is a lightweight browser runtime for loading project JavaScript from a simple configuration file and importing NPM packages directly in the browser.
 
 It is designed for experimenting with a more flexible browser runtime without needing a traditional build setup for the project itself.
 
@@ -165,10 +165,10 @@ Open it at https://chibbit-99.github.io/arch.js/demo/threejs/
 
 arch.js writes startup and package-loading information to the browser console with an `[arch]` prefix.
 
-The NPM loader also exposes `arch` for inspection:
+The NPM loader also exposes `ARCH` for inspection:
 
 ```js
-console.log(arch);
+console.log(ARCH);
 ```
 
 Imported packages are cached, so repeating the same package specifier can reuse the existing module.
