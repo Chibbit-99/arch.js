@@ -1,5 +1,5 @@
 // ============================================================
-// ARC Browser npm loader
+// ARCH Browser npm loader
 // v6
 //
 // Browser:
@@ -29,10 +29,10 @@
 (() => {
 
     // ========================================================
-    // ARC state
+    // ARCH state
     // ========================================================
 
-    const ARC = {
+    const ARCH = {
 
         ESBUILD_VERSION: "0.28.1",
         FFLATE_VERSION: "0.8.2",
@@ -57,11 +57,11 @@
     // ========================================================
 
     function log(...args) {
-        console.log("[ARC]", ...args);
+        console.log("[ARCH]", ...args);
     }
 
     function warn(...args) {
-        console.warn("[ARC]", ...args);
+        console.warn("[ARCH]", ...args);
     }
 
     // ========================================================
@@ -228,7 +228,7 @@
     // ========================================================
     // Source map comment stripping (Problem 2)
     //
-    // ARC does not fetch/host ".map" files through esbuild's
+    // ARCH does not fetch/host ".map" files through esbuild's
     // resolver, and esbuild-wasm cannot read arbitrary files
     // off a real filesystem to satisfy a
     // "//# sourceMappingURL=foo.js.map" comment on its own in
@@ -240,9 +240,9 @@
     // Source maps are optional debugging metadata, not part of
     // a package's actual behavior, so a missing one should never
     // break execution. Rather than let esbuild-wasm attempt (and
-    // fail) to resolve them, ARC strips the comment before
+    // fail) to resolve them, ARCH strips the comment before
     // handing source to esbuild. This is forward-compatible:
-    // if/when ARC adds real source-map hosting, this stripping
+    // if/when ARCH adds real source-map hosting, this stripping
     // step can simply be removed or made conditional.
     // ========================================================
 
@@ -867,7 +867,7 @@
             new Uint8Array(buffer);
 
         const tar =
-            ARC.fflate.gunzipSync(
+            ARCH.fflate.gunzipSync(
                 compressed
             );
 
@@ -978,23 +978,23 @@
             `${name}@${range || "latest"}`;
 
         if (
-            ARC.packages.has(
+            ARCH.packages.has(
                 requestKey
             )
         ) {
 
-            return ARC.packages.get(
+            return ARCH.packages.get(
                 requestKey
             );
         }
 
         if (
-            ARC.packageLoading.has(
+            ARCH.packageLoading.has(
                 requestKey
             )
         ) {
 
-            return ARC.packageLoading.get(
+            return ARCH.packageLoading.get(
                 requestKey
             );
         }
@@ -1146,12 +1146,12 @@
                     files
                 };
 
-                ARC.packages.set(
+                ARCH.packages.set(
                     requestKey,
                     result
                 );
 
-                ARC.packages.set(
+                ARCH.packages.set(
                     `${name}@${version}`,
                     result
                 );
@@ -1160,7 +1160,7 @@
 
             })();
 
-        ARC.packageLoading.set(
+        ARCH.packageLoading.set(
             requestKey,
             promise
         );
@@ -1171,7 +1171,7 @@
 
         } finally {
 
-            ARC.packageLoading.delete(
+            ARCH.packageLoading.delete(
                 requestKey
             );
         }
@@ -1186,7 +1186,7 @@
     ) {
 
         const direct =
-            ARC.installedPackages.get(
+            ARCH.installedPackages.get(
                 name
             );
 
@@ -1196,7 +1196,7 @@
 
         for (
             const pkg
-            of ARC.packages.values()
+            of ARCH.packages.values()
         ) {
 
             if (
@@ -1489,7 +1489,7 @@
         }
 
         // -----------------------------------------------------
-        // ARC is a browser + ESM runtime, so conditions are
+        // ARCH is a browser + ESM runtime, so conditions are
         // preferred in this order:
         //
         //   browser -> import -> module -> default -> require
@@ -1503,7 +1503,7 @@
         // { "require": {...}, "default": "./index.mjs" }).
         // "require" is kept as an actual last resort rather
         // than removed, since some packages only ship a
-        // "require" condition with no "default" at all - ARC's
+        // "require" condition with no "default" at all - ARCH's
         // CJS interop (see wrapCommonJS) makes that survivable.
         // -----------------------------------------------------
 
@@ -1861,7 +1861,7 @@
             );
         }
 
-        ARC.installedPackages.set(
+        ARCH.installedPackages.set(
             pkgResult.name,
             pkgResult
         );
@@ -1985,48 +1985,48 @@
     async function initTools() {
 
         if (
-            ARC.initialized
+            ARCH.initialized
         ) {
-            return ARC.initialized;
+            return ARCH.initialized;
         }
 
-        ARC.initialized =
+        ARCH.initialized =
             (async () => {
 
                 log(
                     "Loading esbuild-WASM..."
                 );
 
-                ARC.esbuild =
+                ARCH.esbuild =
                     await import(
                         "https://unpkg.com/" +
                         "esbuild-wasm@" +
-                        ARC.ESBUILD_VERSION +
+                        ARCH.ESBUILD_VERSION +
                         "/esm/browser.js"
                     );
 
-                await ARC.esbuild.initialize({
+                await ARCH.esbuild.initialize({
                     wasmURL:
                         "https://unpkg.com/" +
                         "esbuild-wasm@" +
-                        ARC.ESBUILD_VERSION +
+                        ARCH.ESBUILD_VERSION +
                         "/esbuild.wasm"
                 });
 
                 log(
                     `esbuild-WASM ` +
-                    `${ARC.esbuild.version} ready`
+                    `${ARCH.esbuild.version} ready`
                 );
 
                 log(
                     "Loading fflate..."
                 );
 
-                ARC.fflate =
+                ARCH.fflate =
                     await import(
                         "https://unpkg.com/" +
                         "fflate@" +
-                        ARC.FFLATE_VERSION +
+                        ARCH.FFLATE_VERSION +
                         "/esm/browser.js"
                     );
 
@@ -2035,7 +2035,7 @@
                 );
             })();
 
-        return ARC.initialized;
+        return ARCH.initialized;
     }
 
     // ========================================================
@@ -2471,7 +2471,7 @@
                         if (!bytes) {
 
                             throw new Error(
-                                `ARC VFS missing ` +
+                                `ARCH VFS missing ` +
                                 `${args.path}`
                             );
                         }
@@ -2598,7 +2598,7 @@
         );
 
         const result =
-            await ARC.esbuild.build({
+            await ARCH.esbuild.build({
 
                 stdin: {
 
@@ -2632,7 +2632,7 @@
                 write:
                     false,
 
-                // Source-map generation from ARC's own bundling
+                // Source-map generation from ARCH's own bundling
                 // step is intentionally left off. This is
                 // distinct from the input-side stripping in
                 // stripSourceMappingComments() above: that
@@ -2641,7 +2641,7 @@
                 // by package source; this setting just stops
                 // esbuild from generating a new inline map for
                 // the bundle it produces, which is unrelated
-                // work ARC doesn't currently consume. Safe to
+                // work ARCH doesn't currently consume. Safe to
                 // turn back on later without touching anything
                 // else.
                 sourcemap:
@@ -2698,7 +2698,7 @@
     ) {
 
         const id =
-            ++ARC.bridgeCounter;
+            ++ARCH.bridgeCounter;
 
         const resultKey =
             "__ARC_MODULE_" +
@@ -2747,7 +2747,7 @@
         //
         // Rather than trying to statically rewrite arbitrary CJS
         // source (fragile - regressions on real-world code are
-        // very easy), ARC fixes this at the *runtime* boundary:
+        // very easy), ARCH fixes this at the *runtime* boundary:
         // once the real module has actually executed, we look at
         // its `default` export and, if it is an object or
         // function that itself carries additional own-enumerable
@@ -2856,7 +2856,7 @@
                 }
 
                 console.log(
-                    "[ARC] Preserving named exports:",
+                    "[ARCH] Preserving named exports:",
                     Object.keys(extra).join(", ")
                 );
 
@@ -3006,7 +3006,7 @@
                             reject(
                                 new Error(
                                     `Failed loading ` +
-                                    `ARC script for ` +
+                                    `ARCH script for ` +
                                     `${packageName}@${version}`
                                 )
                             );
@@ -3031,7 +3031,7 @@
         // Keep references
         // ----------------------------------------------------
 
-        ARC.blobs.set(
+        ARCH.blobs.set(
             `${packageName}@${version}`,
             {
                 packageURL,
@@ -3057,7 +3057,7 @@
             );
 
         if (
-            ARC.modules.has(
+            ARCH.modules.has(
                 specifier
             )
         ) {
@@ -3066,7 +3066,7 @@
                 `Cache hit: ${specifier}`
             );
 
-            return ARC.modules.get(
+            return ARCH.modules.get(
                 specifier
             );
         }
@@ -3115,7 +3115,7 @@
             // Cache
             // ------------------------------------------------
 
-            ARC.modules.set(
+            ARCH.modules.set(
                 specifier,
                 module
             );
@@ -3140,7 +3140,7 @@
         } catch (err) {
 
             console.error(
-                `[ARC] importPackage("${specifier}") failed:`,
+                `[ARCH] importPackage("${specifier}") failed:`,
                 err
             );
 
@@ -3157,7 +3157,7 @@
     //
     // IMPORTANT: this intentionally does NOT call importPackage()
     // on your behalf. The package must already have been
-    // imported (and therefore be present in ARC.modules) via a
+    // imported (and therefore be present in ARCH.modules) via a
     // prior:
     //
     //   await importPackage("three");
@@ -3182,7 +3182,7 @@
         ) {
 
             throw new Error(
-                `[ARC] importGlobal() requires a ` +
+                `[ARCH] importGlobal() requires a ` +
                 `package name as its first argument`
             );
         }
@@ -3193,7 +3193,7 @@
         ) {
 
             throw new Error(
-                `[ARC] importGlobal() requires an ` +
+                `[ARCH] importGlobal() requires an ` +
                 `export key as its second argument`
             );
         }
@@ -3208,20 +3208,20 @@
         // -----------------------------------------------------
         // Resolve which cached module this refers to.
         //
-        // ARC.modules is keyed by the exact specifier string
+        // ARCH.modules is keyed by the exact specifier string
         // that was passed to importPackage() (e.g. "three",
         // "@anthropic-ai/sdk", "@anthropic-ai/sdk/helpers").
         // importGlobal() accepts the same kind of specifier.
         // -----------------------------------------------------
 
         if (
-            !ARC.modules.has(
+            !ARCH.modules.has(
                 packageName
             )
         ) {
 
             throw new Error(
-                `[ARC] importGlobal("${packageName}", ` +
+                `[ARCH] importGlobal("${packageName}", ` +
                 `"${exportKey}"${alias ? `, "${alias}"` : ""}) ` +
                 `failed: dependencies not imported. ` +
                 `Call "await importPackage(${
@@ -3231,7 +3231,7 @@
         }
 
         const module =
-            ARC.modules.get(
+            ARCH.modules.get(
                 packageName
             );
 
@@ -3243,7 +3243,7 @@
         ) {
 
             throw new Error(
-                `[ARC] importGlobal("${packageName}", ` +
+                `[ARCH] importGlobal("${packageName}", ` +
                 `"${exportKey}") failed: ` +
                 `"${exportKey}" is not an export of ` +
                 `"${packageName}". Available exports: ` +
@@ -3282,8 +3282,8 @@
     // Expose debugging API
     // ========================================================
 
-    globalThis.ARC =
-        ARC;
+    globalThis.ARCH =
+        ARCH;
 
     globalThis.importPackage =
         importPackage;
@@ -3296,7 +3296,7 @@
     // ========================================================
 
     console.log(
-        "%c[ARC] Browser npm loader ready",
+        "%c[ARCH] Browser npm loader ready",
         "font-weight:bold"
     );
 
