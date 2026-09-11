@@ -4,9 +4,9 @@ async function getConfigValue() {
     // Load config.json
     // ==================================================
 
-    console.log("[ARC] Loading config.json...");
+    console.log("[ARCH] Loading config.json...");
 
-    const response = await fetch("./arc/config.json");
+    const response = await fetch("./arch/config.json");
 
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);
@@ -14,31 +14,31 @@ async function getConfigValue() {
 
     const config = await response.json();
 
-    console.log("[ARC] Config loaded:", config);
+    console.log("[ARCH] Config loaded:", config);
 
     // Make sure modules exists and is an array
     if (!Array.isArray(config.modules)) {
-      throw new Error("[ARC] config.modules must be an array");
+      throw new Error("[ARCH] config.modules must be an array");
     }
 
-    console.log(`[ARC] Found ${config.modules.length} module(s)`);
+    console.log(`[ARCH] Found ${config.modules.length} module(s)`);
 
     // ==================================================
-    // Load ARC modules
+    // Load ARCH modules
     // ==================================================
 
     for (const moduleName of config.modules) {
       const url =
-        `https://chibbit-99.github.io/arc.js/module/${moduleName}`;
+        `https://chibbit-99.github.io/arch.js/module/${moduleName}`;
 
-      console.log(`[ARC] Loading module: ${moduleName}`);
-      console.log(`[ARC] Fetching: ${url}`);
+      console.log(`[ARCH] Loading module: ${moduleName}`);
+      console.log(`[ARCH] Fetching: ${url}`);
 
       const moduleResponse = await fetch(url);
 
       if (!moduleResponse.ok) {
         console.error(
-          `[ARC] Failed to fetch ${moduleName}: HTTP ${moduleResponse.status}`
+          `[ARCH] Failed to fetch ${moduleName}: HTTP ${moduleResponse.status}`
         );
         continue;
       }
@@ -46,29 +46,29 @@ async function getConfigValue() {
       const code = await moduleResponse.text();
 
       console.log(
-        `[ARC] Fetched ${moduleName} (${code.length} bytes)`
+        `[ARCH] Fetched ${moduleName} (${code.length} bytes)`
       );
 
       const script = document.createElement("script");
 
       script.textContent = code;
 
-      console.log(`[ARC] Injecting module: ${moduleName}`);
+      console.log(`[ARCH] Injecting module: ${moduleName}`);
 
       document.body.appendChild(script);
 
-      console.log(`[ARC] Module loaded: ${moduleName}`);
+      console.log(`[ARCH] Module loaded: ${moduleName}`);
     }
 
-    console.log("[ARC] All modules loaded successfully");
+    console.log("[ARCH] All modules loaded successfully");
 
     // ==================================================
-    // Load arc/init.js
+    // Load arch/init.js
     // ==================================================
 
-    const initURL = "./arc/init.js";
+    const initURL = "./arch/init.js";
 
-    console.log("[ARC] Looking for init.js...");
+    console.log("[ARCH] Looking for init.js...");
 
     const initResponse = await fetch(initURL);
 
@@ -76,10 +76,10 @@ async function getConfigValue() {
       const initCode = await initResponse.text();
 
       console.log(
-        `[ARC] Fetched init.js (${initCode.length} bytes)`
+        `[ARCH] Fetched init.js (${initCode.length} bytes)`
       );
 
-      console.log("[ARC] Executing init.js...");
+      console.log("[ARCH] Executing init.js...");
 
       /*
        * Execute init.js as an async function.
@@ -98,18 +98,18 @@ async function getConfigValue() {
 
       await executeInit();
 
-      console.log("[ARC] init.js executed successfully");
+      console.log("[ARCH] init.js executed successfully");
 
     } else if (initResponse.status === 404) {
 
       console.warn(
-        "[ARC] No arc/init.js found. It is recommended to put all ARC setup scripts in arc/init.js so that dependencies are initialized before your main JavaScript files."
+        "[ARCH] No arch/init.js found. It is recommended to put all ARCH setup scripts in arch/init.js so that dependencies are initialized before your main JavaScript files."
       );
 
     } else {
 
       console.warn(
-        `[ARC] Failed to load arc/init.js: HTTP ${initResponse.status}`
+        `[ARCH] Failed to load arch/init.js: HTTP ${initResponse.status}`
       );
 
     }
@@ -120,7 +120,7 @@ async function getConfigValue() {
 
     if (!config.js) {
       console.warn(
-        '[ARC] No "js" property found in config.json. No project JavaScript files will be executed.'
+        '[ARCH] No "js" property found in config.json. No project JavaScript files will be executed.'
       );
 
       return config;
@@ -142,25 +142,25 @@ async function getConfigValue() {
       : [config.js];
 
     console.log(
-      `[ARC] Found ${jsFiles.length} project JavaScript file(s)`
+      `[ARCH] Found ${jsFiles.length} project JavaScript file(s)`
     );
 
     // ==================================================
     // Fetch all project JavaScript files concurrently
     // ==================================================
 
-    console.log("[ARC] Fetching project JavaScript files...");
+    console.log("[ARCH] Fetching project JavaScript files...");
 
     const jsResults = await Promise.all(
       jsFiles.map(async (jsFile) => {
-        console.log(`[ARC] Fetching: ${jsFile}`);
+        console.log(`[ARCH] Fetching: ${jsFile}`);
 
         try {
           const jsResponse = await fetch(jsFile);
 
           if (!jsResponse.ok) {
             console.error(
-              `[ARC] Failed to fetch project JavaScript "${jsFile}": HTTP ${jsResponse.status}`
+              `[ARCH] Failed to fetch project JavaScript "${jsFile}": HTTP ${jsResponse.status}`
             );
 
             return null;
@@ -169,7 +169,7 @@ async function getConfigValue() {
           const jsCode = await jsResponse.text();
 
           console.log(
-            `[ARC] Fetched ${jsFile} (${jsCode.length} bytes)`
+            `[ARCH] Fetched ${jsFile} (${jsCode.length} bytes)`
           );
 
           return {
@@ -179,7 +179,7 @@ async function getConfigValue() {
 
         } catch (error) {
           console.error(
-            `[ARC] Failed to fetch project JavaScript "${jsFile}":`,
+            `[ARCH] Failed to fetch project JavaScript "${jsFile}":`,
             error
           );
 
@@ -192,7 +192,7 @@ async function getConfigValue() {
     // Execute project JavaScript files in config order
     // ==================================================
 
-    console.log("[ARC] Executing project JavaScript files...");
+    console.log("[ARCH] Executing project JavaScript files...");
 
     for (const result of jsResults) {
       if (!result) {
@@ -202,7 +202,7 @@ async function getConfigValue() {
       const { file, code } = result;
 
       console.log(
-        `[ARC] Executing project JavaScript: ${file}`
+        `[ARCH] Executing project JavaScript: ${file}`
       );
 
       const jsScript = document.createElement("script");
@@ -212,7 +212,7 @@ async function getConfigValue() {
       document.body.appendChild(jsScript);
 
       console.log(
-        `[ARC] Project JavaScript executed successfully: ${file}`
+        `[ARCH] Project JavaScript executed successfully: ${file}`
       );
     }
 
@@ -220,12 +220,12 @@ async function getConfigValue() {
     // Finished
     // ==================================================
 
-    console.log("[ARC] Project startup complete");
+    console.log("[ARCH] Project startup complete");
 
     return config;
 
   } catch (error) {
-    console.error("[ARC] Failed to start project:", error);
+    console.error("[ARCH] Failed to start project:", error);
   }
 }
 
