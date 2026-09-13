@@ -31,9 +31,9 @@ a{color:inherit;text-decoration:none}
 .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{border:1px solid rgba(241,235,227,.09);border-radius:10px;padding:24px;background:rgba(27,24,21,.45)}.card h3{font-family:Georgia,"Times New Roman",serif;color:#F1EBE3;margin:0 0 8px;font-size:22px}.card p{margin:0;color:#8F8477;font-size:14px}
 .updates{display:grid;grid-template-columns:1fr 1fr;gap:16px}.update{border:1px solid rgba(241,235,227,.09);border-radius:10px;padding:22px;background:rgba(27,24,21,.35)}.update:hover{border-color:rgba(198,97,63,.4);background:rgba(27,24,21,.5)}.update h3{font-family:Georgia,"Times New Roman",serif;color:#F1EBE3;font-size:21px;margin:0 0 8px}.update p{margin:0;color:#8F8477;font-size:13px}
 .cta{text-align:center;padding:96px 20px;border-top:1px solid rgba(241,235,227,.09);background:rgba(27,24,21,.4)}.cta h2{font-family:Georgia,"Times New Roman",serif;color:#F1EBE3;font-size:42px;line-height:1.15;margin:0 0 28px}
-footer{border-top:1px solid rgba(241,235,227,.09);padding:56px 20px}.footer-grid{display:grid;grid-template-columns:2fr repeat(3,1fr);gap:42px}.footer-title{font-weight:600;color:#F1EBE3;margin-bottom:12px}.footer-grid a{display:block;color:#C9BFB2;font-size:14px;margin:7px 0}.footer-grid a:hover{color:#C6613F}.footer-note{font-size:12px;color:#8F8477}
-@media(max-width:900px){.nav-links{display:none}.showcase{grid-template-columns:1fr}.code-side{border-right:0;border-bottom:1px solid rgba(241,235,227,.09)}.code-window{height:540px}.demo-frame-wrap{min-height:420px}.demo-frame{min-height:376px}.twocol,.updates{grid-template-columns:1fr}.twocol>div{border-right:0;border-bottom:1px solid rgba(241,235,227,.09);padding:0 0 28px}.cards{grid-template-columns:1fr}.footer-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:560px){.container{width:min(100% - 28px,1152px)}.hero{padding:82px 14px}.section{padding:82px 14px}.showcase{border-radius:16px 16px 16px 4px}.code-window{padding:16px;height:470px}.code-window pre{font-size:11px}.demo-frame-wrap{padding:14px}.demo-frame{min-height:320px}.footer-grid{grid-template-columns:1fr}}
+.package-demo{background:#211D19;border:1px solid rgba(241,235,227,.09);border-radius:22px 22px 22px 4px;overflow:hidden}.package-bar{display:flex;gap:10px;padding:18px;border-bottom:1px solid rgba(241,235,227,.09);background:rgba(20,18,15,.45)}.package-input{flex:1;min-width:0;background:#14120F;border:1px solid rgba(241,235,227,.09);border-radius:6px;padding:12px 14px;color:#F1EBE3;font:15px "SFMono-Regular",Consolas,monospace;outline:none}.package-input:focus{border-color:rgba(198,97,63,.55)}.package-grid{display:grid;grid-template-columns:1fr 1fr}.terminal-panel,.compiled-panel{min-width:0;background:rgba(20,18,15,.6)}.terminal-panel{border-right:1px solid rgba(241,235,227,.09)}.terminal{height:360px;overflow:auto;margin:0;padding:20px;color:#C9BFB2;font:12px/1.65 "SFMono-Regular",Consolas,monospace;white-space:pre-wrap}.compiled-panel{background:#1B1815}.compiled-output{display:block;width:100%;height:360px;resize:none;border:0;outline:0;background:transparent;color:#C9BFB2;padding:20px;font:12px/1.55 "SFMono-Regular",Consolas,monospace}.compiled-empty{height:360px;display:flex;align-items:center;justify-content:center;padding:30px;text-align:center;color:#8F8477;font-size:14px}.compiled-actions{display:flex;gap:10px;padding:0 20px 20px}.package-demo .button{padding:9px 15px;font-size:14px}
+@media(max-width:900px){.nav-links{display:none}.showcase{grid-template-columns:1fr}.code-side{border-right:0;border-bottom:1px solid rgba(241,235,227,.09)}.code-window{height:540px}.demo-frame-wrap{min-height:420px}.demo-frame{min-height:376px}.twocol,.updates{grid-template-columns:1fr}.twocol>div{border-right:0;border-bottom:1px solid rgba(241,235,227,.09);padding:0 0 28px}.cards{grid-template-columns:1fr}.footer-grid{grid-template-columns:1fr 1fr}.package-grid{grid-template-columns:1fr}.terminal-panel{border-right:0;border-bottom:1px solid rgba(241,235,227,.09)}}
+@media(max-width:560px){.container{width:min(100% - 28px,1152px)}.hero{padding:82px 14px}.section{padding:82px 14px}.showcase{border-radius:16px 16px 16px 4px}.code-window{padding:16px;height:470px}.code-window pre{font-size:11px}.demo-frame-wrap{padding:14px}.demo-frame{min-height:320px}.footer-grid{grid-template-columns:1fr}.package-bar{flex-direction:column}.package-bar .button{width:100%}}
 </style>
 </head>
 <body>
@@ -201,6 +201,8 @@ footer{border-top:1px solid rgba(241,235,227,.09);padding:56px 20px}.footer-grid
 <div class="copy-hint"><span>Copy the example, or open the live demo.</span><code>importPackage("three")</code></div>
 </div></section>
 <div class="container"><div class="rule"></div></div>
+<section class="section" id="package-playground"><div class="section-head"><h2>Bring an npm package into the browser</h2><p>Enter a package name and watch ARCH.js resolve, compile, and load it in real time.</p></div><div class="container"><div class="package-demo"><div class="package-bar"><input id="package-name" class="package-input" type="text" value="three" placeholder="npm package name" autocomplete="off" spellcheck="false"><button id="package-run" class="button primary" type="button">Install package</button></div><div class="package-grid"><div class="terminal-panel"><div class="panel-head"><span class="dot"></span><span>ARCH.js output</span></div><pre id="package-logs" class="terminal"></pre></div><div class="compiled-panel"><div class="panel-head"><span class="dot"></span><span>Compiled JavaScript</span></div><div class="compiled-empty" id="compiled-empty">Run a package to inspect the generated browser code.</div><textarea id="compiled-output" class="compiled-output" readonly hidden></textarea><div class="compiled-actions"><button id="compiled-view" class="button secondary" type="button" hidden>View compiled JS</button><button id="compiled-copy" class="button secondary" type="button" hidden>Copy compiled JS</button></div></div></div></div></div></section>
+<div class="container"><div class="rule"></div></div>
 <section class="section"><div class="section-head"><h2>Build with packages, not restrictions</h2><p>Load packages, work with their exports, and keep building in the browser environment your users already have.</p></div><div class="container cards"><article class="card"><h3>Package loading</h3><p>Bring JavaScript packages into client-side applications without a traditional server-side runtime.</p></article><article class="card"><h3>Browser exports</h3><p>Use the package namespace directly from your application with ordinary JavaScript.</p></article><article class="card"><h3>Room to grow</h3><p>ARCH.js is designed to grow from a package loader into a broader browser-side runtime layer.</p></article></div></section>
 <div class="container"><div class="rule"></div></div>
 <section class="section"><div class="section-head"><h2>Add capabilities wherever you need them</h2><p>OCR, rendering, data processing, and more can run closer to the browser itself.</p></div><div class="container twocol"><div><h3>Stay close to the web</h3><p>Keep using standard web APIs, JavaScript, and the platform underneath while adding a more capable package-loading environment.</p></div><div><h3>Go beyond a simple loader</h3><p>Packages can be resolved, loaded, cached, and exposed through a consistent interface while the web remains the foundation.</p></div></div></section>
@@ -209,5 +211,74 @@ footer{border-top:1px solid rgba(241,235,227,.09);padding:56px 20px}.footer-grid
 <section class="cta"><h2>Welcome to the<br>ARCH.js ecosystem</h2><a class="button primary" href="./docs/#quick-start">Get Started</a></section>
 </main>
 <footer><div class="container footer-grid"><div><a class="brand" href="./"><img src="./logo.png" alt="ARCH.js"><span>ARCH.js</span></a><p class="footer-note">A browser-side JavaScript runtime and package loader.</p></div><div><div class="footer-title">Learn ARCH.js</div><a href="./docs/#quick-start">Getting Started</a><a href="./docs/#packages">Packages</a><a href="./docs/#api">Runtime</a><a href="./demo/">Examples</a></div><div><div class="footer-title">Reference</div><a href="./docs/#api">ARCH APIs</a><a href="./docs/#packages">Package Loader</a><a href="./docs/#config">Configuration</a><a href="./docs/#layout">Deployment</a></div><div><div class="footer-title">Community</div><a href="https://github.com/Chibbit-99/arch.js">GitHub</a><a href="https://github.com/Chibbit-99/arch.js/issues">Issues</a><a href="./demo/">Examples</a></div></div></footer>
+<script>
+(() => {
+  const input = document.getElementById("package-name");
+  const run = document.getElementById("package-run");
+  const logs = document.getElementById("package-logs");
+  const output = document.getElementById("compiled-output");
+  const empty = document.getElementById("compiled-empty");
+  const view = document.getElementById("compiled-view");
+  const copy = document.getElementById("compiled-copy");
+  let loaderPromise = null;
+  let compiledCode = "";
+  function formatArg(value) { if (typeof value === "string") return value; try { return JSON.stringify(value); } catch { return String(value); } }
+  function appendLog(kind, args) { logs.textContent += `[${kind}] ${args.map(formatArg).join(" ")}\n`; logs.scrollTop = logs.scrollHeight; }
+  async function ensureARCH() {
+    if (typeof globalThis.importPackage === "function") return;
+    if (loaderPromise) return loaderPromise;
+    loaderPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://chibbit-99.github.io/arch.js/releases/latest.js?homepage-demo";
+      script.onload = resolve;
+      script.onerror = () => reject(new Error("Failed to load ARCH.js"));
+      document.head.appendChild(script);
+    });
+    return loaderPromise;
+  }
+  async function install() {
+    const specifier = input.value.trim();
+    if (!specifier) return;
+    run.disabled = true;
+    run.textContent = "Installing...";
+    logs.textContent = "";
+    output.value = "";
+    output.hidden = true;
+    empty.hidden = false;
+    view.hidden = true;
+    copy.hidden = true;
+    const original = {log: console.log, warn: console.warn, error: console.error};
+    const write = (kind, args, fn) => { appendLog(kind, args); fn(...args); };
+    console.log = (...args) => write("LOG", args, original.log);
+    console.warn = (...args) => write("WARN", args, original.warn);
+    console.error = (...args) => write("ERROR", args, original.error);
+    try {
+      await ensureARCH();
+      const module = await globalThis.importPackage(specifier);
+      const entries = [...globalThis.ARCH.blobs.entries()].filter(([, value]) => value && value.packageURL);
+      const entry = entries.find(([key]) => key.startsWith(`${specifier}@`)) || entries.at(-1);
+      if (!entry) throw new Error("ARCH loaded the package but its compiled blob was not found.");
+      compiledCode = await fetch(entry[1].packageURL).then(async response => { if (!response.ok) throw new Error(`Compiled blob fetch failed: ${response.status}`); return response.text(); });
+      empty.hidden = true;
+      output.value = compiledCode;
+      view.hidden = false;
+      copy.hidden = false;
+      appendLog("OK", [`Imported ${specifier}`, `Exports: ${Object.keys(module).join(", ")}`, `Compiled JavaScript ready (${compiledCode.length.toLocaleString()} characters)`]);
+    } catch (error) {
+      appendLog("ERROR", [error?.message || String(error)]);
+    } finally {
+      console.log = original.log;
+      console.warn = original.warn;
+      console.error = original.error;
+      run.disabled = false;
+      run.textContent = "Install package";
+    }
+  }
+  view.addEventListener("click", () => { output.hidden = !output.hidden; view.textContent = output.hidden ? "View compiled JS" : "Hide compiled JS"; });
+  copy.addEventListener("click", async () => { try { await navigator.clipboard.writeText(compiledCode); } catch { output.hidden = false; output.focus(); output.select(); document.execCommand("copy"); } copy.textContent = "Copied"; setTimeout(() => copy.textContent = "Copy compiled JS", 1400); });
+  run.addEventListener("click", install);
+  input.addEventListener("keydown", event => { if (event.key === "Enter") install(); });
+})();
+</script>
 </body>
 </html>
