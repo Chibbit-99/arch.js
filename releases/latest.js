@@ -87,6 +87,8 @@ async function getConfigValue() {
     // Development fallback when config.json is missing
     // --------------------------------------------------
 
+    let config;
+
     if (response.status === 404) {
       const docsURL =
         "https://chibbit-99.github.io/arch.js/docs/";
@@ -99,37 +101,51 @@ async function getConfigValue() {
 
       await loadAllModulesFallback();
 
-      console.log(
-        "[ARCH] Development fallback complete. No project files were loaded because config.json is missing."
+      // Continue through the normal startup pipeline using the
+      // conventional ARCH project entry point when no config exists.
+      config = {
+        js: "./src/main.js"
+      };
+
+      console.warn(
+        "[ARCH] Using fallback project entry: ./src/main.js"
       );
 
-      return null;
+    } else {
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      config = await response.json();
+
+      console.log("[ARCH] Config loaded:", config);
     }
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-
-    const config = await response.json();
-
-    console.log("[ARCH] Config loaded:", config);
-
-    // Make sure modules exists and is an array
-    if (!Array.isArray(config.modules)) {
+    // Make sure modules exists and is an array when config.json
+    // was actually provided. In fallback mode all available
+    // modules have already been discovered and loaded above.
+    if (config.modules !== undefined && !Array.isArray(config.modules)) {
       throw new Error("[ARCH] config.modules must be an array");
     }
 
-    console.log(`[ARCH] Found ${config.modules.length} module(s)`);
+    if (Array.isArray(config.modules)) {
+      console.log(`[ARCH] Found ${config.modules.length} module(s)`);
 
-    // ==================================================
-    // Load ARCH modules
-    // ==================================================
+      // ==================================================
+      // Load ARCH modules
+      // ==================================================
 
-    for (const moduleName of config.modules) {
-      await loadModule(moduleName);
+      for (const moduleName of config.modules) {
+        await loadModule(moduleName);
+      }
+
+      console.log("[ARCH] All modules loaded successfully");
+    } else {
+      console.log(
+        "[ARCH] Config module list skipped because automatic module discovery was used"
+      );
     }
-
-    console.log("[ARCH] All modules loaded successfully");
 
     // ==================================================
     // Load arch/init.js
