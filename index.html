@@ -1,6 +1,4 @@
-<!DOCTYPE html>
-<html lang="en" class="dark">
-<head>
+<html lang="en" class="dark"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ARCH.js</title>
@@ -43,15 +41,15 @@ footer{border-top:1px solid rgba(241,235,227,.09);padding:56px 20px}.footer-grid
 .code-window::-webkit-scrollbar-thumb:hover,.terminal::-webkit-scrollbar-thumb:hover,.compiled-output::-webkit-scrollbar-thumb:hover{background:rgba(198,97,63,.7)}
 </style>
 </head>
-<body>
+<body spellcheck="true" contenteditable="false">
 <nav class="nav"><div class="container nav-inner"><a class="brand" href="./"><img src="./logo.png" alt="ARCH.js"><span>ARCH.js</span></a><div class="nav-links"><a href="./docs/">Docs</a><a href="./docs/#api">Reference</a><a href="./demo/">Examples</a><a href="https://github.com/Chibbit-99/arch.js">GitHub</a></div></div></nav>
 <main>
 <header class="hero"><img src="./logo.png" alt="ARCH.js"><h1>ARCH.js</h1><p class="tagline">What if the browser could do more?</p><div class="buttons"><a class="button primary" href="./docs/#quick-start">Get Started</a><a class="button secondary" href="./docs/">Documentation</a></div></header>
 <div class="container"><div class="rule"></div></div>
-<section class="section"><div class="section-head"><h2>Bring more of JavaScript to the browser</h2><p>ARCH.js gives browser applications a runtime layer for loading and using JavaScript packages directly in the browser.</p></div>
+<section class="section"><div class="section-head"><h2>The framework that brings npm to the browser</h2><p>ARCH.js gives browser applications a runtime layer for loading and using JavaScript packages directly in the browser.</p></div>
 <div class="container">
 <div class="showcase">
-<div class="code-side"><div class="panel-head"><span class="dot"></span><span>Minecraft Scene</span></div><div class="code-window"><pre><span class="tag">&lt;script src="https://chibbit-99.github.io/arch.js/releases/latest.js?v=test2"&gt;&lt;/script&gt;</span>
+<div class="code-side"><div class="panel-head"><span>index.html</span></div><div class="code-window"><pre><span class="tag">&lt;script src="https://chibbit-99.github.io/arch.js/releases/latest.js"&gt;&lt;/script&gt;</span>
 
 <span class="tag">&lt;script type="module"&gt;</span>
     <span class="kw">const</span> THREE = <span class="kw">await</span> importPackage(<span class="str">"three"</span>);
@@ -203,14 +201,14 @@ footer{border-top:1px solid rgba(241,235,227,.09);padding:56px 20px}.footer-grid
     console.log(<span class="str">"✓ Renderer running"</span>);
     console.log(<span class="str">"=== Minecraft scene running ==="</span>);
 <span class="tag">&lt;/script&gt;</span></pre></div></div>
-<div class="demo-side"><div class="panel-head"><span class="dot"></span><span>Live demo</span></div><div class="demo-frame-wrap"><iframe class="demo-frame" src="./demo/threejs/" title="ARCH.js Three.js Minecraft demo" loading="lazy"></iframe></div><div class="demo-caption"><strong>./demo/threejs/</strong> — the same ARCH.js prototype running live in the browser.</div></div>
+<div class="demo-side"><div class="panel-head"><span>Live demo</span></div><div class="demo-frame-wrap"><iframe class="demo-frame" src="./demo/threejs/" title="ARCH.js Three.js Minecraft demo" loading="lazy"></iframe></div></div>
 </div>
-<div class="copy-hint"><span>Copy the example, or open the live demo.</span><code>importPackage("three")</code></div>
+<div class="copy-hint"><span><br></span></div>
 </div></section>
 <div class="container"><div class="rule"></div></div>
-<section class="section" id="package-playground"><div class="section-head"><h2>Bring an npm package into the browser</h2><p>Enter a package name and watch ARCH.js resolve, compile, and load it in real time.</p></div><div class="container"><div class="package-demo"><div class="package-bar"><input id="package-name" class="package-input" type="text" value="three" placeholder="npm package name" autocomplete="off" spellcheck="false"><button id="package-run" class="button primary" type="button">Install package</button></div><div class="package-grid"><div class="terminal-panel"><div class="panel-head"><span class="dot"></span><span>ARCH.js output</span></div><pre id="package-logs" class="terminal"></pre></div><div class="compiled-panel"><div class="panel-head"><span class="dot"></span><span>Compiled JavaScript</span></div><div class="compiled-empty" id="compiled-empty">Run a package to inspect the generated browser code.</div><textarea id="compiled-output" class="compiled-output" readonly hidden></textarea></div><div class="compiled-actions"><button id="compiled-view" class="button secondary" type="button" hidden>View compiled JS</button><button id="compiled-copy" class="button secondary" type="button" hidden>Copy compiled JS</button></div></div></div></div></section>
+<section class="section" id="package-playground"><div class="section-head"><h2>Try it out</h2><p>Enter a package name and watch ARCH.js resolve, compile, and load it in real time.</p></div><div class="container"><div class="package-demo"><div class="package-bar"><input id="package-name" class="package-input" type="text" value="three" placeholder="npm package name" autocomplete="off" spellcheck="false"><button id="package-run" class="button primary" type="button">Install package</button></div><div class="package-grid"><div class="terminal-panel"><div class="panel-head"><span>ARCH.js output</span></div><pre id="package-logs" class="terminal"></pre></div><div class="compiled-panel"><div class="panel-head"><span>Compiled JavaScript</span></div><div class="compiled-empty" id="compiled-empty">Run a package to inspect the generated browser code.</div><textarea id="compiled-output" class="compiled-output" readonly="" hidden=""></textarea></div><div class="compiled-actions"><button id="compiled-view" class="button secondary" type="button" hidden="">View compiled JS</button><button id="compiled-copy" class="button secondary" type="button" hidden="">Copy compiled JS</button></div></div></div></div></section>
 <div class="container"><div class="rule"></div></div>
-<section class="section"><div class="section-head"><h2>Build with packages, not restrictions</h2><p>Load packages, work with their exports, and keep building in the browser environment your users already have.</p></div><div class="container cards"><article class="card"><h3>Package loading</h3><p>Bring JavaScript packages into client-side applications without a traditional server-side runtime.</p></article><article class="card"><h3>Browser exports</h3><p>Use the package namespace directly from your application with ordinary JavaScript.</p></article><article class="card"><h3>Room to grow</h3><p>ARCH.js is designed to grow from a package loader into a broader browser-side runtime layer.</p></article></div></section>
+<section class="section"><div class="section-head"><h2>How it works</h2></div><div class="container cards"><article class="card"><h3>NPM registry</h3><p>ARCH.js looks up your package in the official npm registry and extracts the revelant files.</p></article><article class="card"><h3>Package resolution</h3><p>ARCH.js will compile your package to let it run in your browser.</p></article><article class="card"><h3>Export as a module</h3><p>ARCH.js exports the compiled package as a global object.</p></article></div></section>
 <div class="container"><div class="rule"></div></div>
 <section class="section"><div class="section-head"><h2>Add capabilities wherever you need them</h2><p>OCR, rendering, data processing, and more can run closer to the browser itself.</p></div><div class="container twocol"><div><h3>Stay close to the web</h3><p>Keep using standard web APIs, JavaScript, and the platform underneath while adding a more capable package-loading environment.</p></div><div><h3>Go beyond a simple loader</h3><p>Packages can be resolved, loaded, cached, and exposed through a consistent interface while the web remains the foundation.</p></div></div></section>
 <div class="container"><div class="rule"></div></div>
@@ -287,5 +285,6 @@ footer{border-top:1px solid rgba(241,235,227,.09);padding:56px 20px}.footer-grid
   input.addEventListener("keydown", event => { if (event.key === "Enter") install(); });
 })();
 </script>
-</body>
-</html>
+
+
+</body></html>
