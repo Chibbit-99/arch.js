@@ -1,12 +1,110 @@
 async function getConfigValue() {
   try {
     // ==================================================
+    // Helpers
+    // ==================================================
+
+    async function loadModule(moduleName) {
+      const url =
+        `https://chibbit-99.github.io/arch.js/module/${moduleName}`;
+
+      console.log(`[ARCH] Loading module: ${moduleName}`);
+      console.log(`[ARCH] Fetching: ${url}`);
+
+      const moduleResponse = await fetch(url);
+
+      if (!moduleResponse.ok) {
+        console.error(
+          `[ARCH] Failed to fetch ${moduleName}: HTTP ${moduleResponse.status}`
+        );
+        return false;
+      }
+
+      const code = await moduleResponse.text();
+
+      console.log(
+        `[ARCH] Fetched ${moduleName} (${code.length} bytes)`
+      );
+
+      const script = document.createElement("script");
+
+      script.textContent = code;
+
+      console.log(`[ARCH] Injecting module: ${moduleName}`);
+
+      document.body.appendChild(script);
+
+      console.log(`[ARCH] Module loaded: ${moduleName}`);
+
+      return true;
+    }
+
+    async function loadAllModulesFallback() {
+      console.log("[ARCH] Discovering available ARCH modules...");
+
+      const response = await fetch(
+        "https://api.github.com/repos/Chibbit-99/arch.js/contents/module?ref=main"
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Could not discover ARCH modules: HTTP ${response.status}`
+        );
+      }
+
+      const entries = await response.json();
+
+      const moduleNames = entries
+        .filter(
+          entry =>
+            entry &&
+            entry.type === "file" &&
+            typeof entry.name === "string" &&
+            entry.name.endsWith(".js")
+        )
+        .map(entry => entry.name);
+
+      console.log(
+        `[ARCH] Discovered ${moduleNames.length} module(s)`
+      );
+
+      for (const moduleName of moduleNames) {
+        await loadModule(moduleName);
+      }
+
+      console.log("[ARCH] All discovered modules loaded successfully");
+    }
+
+    // ==================================================
     // Load config.json
     // ==================================================
 
     console.log("[ARCH] Loading config.json...");
 
     const response = await fetch("./arch/config.json");
+
+    // --------------------------------------------------
+    // Development fallback when config.json is missing
+    // --------------------------------------------------
+
+    if (response.status === 404) {
+      const docsURL =
+        "https://chibbit-99.github.io/arch.js/docs/";
+
+      console.warn(
+        "[ARCH] No arch/config.json found. Falling back to automatic module discovery. " +
+        "This approach is intended for development only and should not be used in production. " +
+        `See the ARCH.js docs: ${docsURL}`
+      );
+
+      await loadAllModulesFallback();
+
+      console.log(
+        "[ARCH] Development fallback complete. No project files were loaded because config.json is missing."
+      );
+
+      return null;
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);
@@ -28,36 +126,7 @@ async function getConfigValue() {
     // ==================================================
 
     for (const moduleName of config.modules) {
-      const url =
-        `https://chibbit-99.github.io/arch.js/module/${moduleName}`;
-
-      console.log(`[ARCH] Loading module: ${moduleName}`);
-      console.log(`[ARCH] Fetching: ${url}`);
-
-      const moduleResponse = await fetch(url);
-
-      if (!moduleResponse.ok) {
-        console.error(
-          `[ARCH] Failed to fetch ${moduleName}: HTTP ${moduleResponse.status}`
-        );
-        continue;
-      }
-
-      const code = await moduleResponse.text();
-
-      console.log(
-        `[ARCH] Fetched ${moduleName} (${code.length} bytes)`
-      );
-
-      const script = document.createElement("script");
-
-      script.textContent = code;
-
-      console.log(`[ARCH] Injecting module: ${moduleName}`);
-
-      document.body.appendChild(script);
-
-      console.log(`[ARCH] Module loaded: ${moduleName}`);
+      await loadModule(moduleName);
     }
 
     console.log("[ARCH] All modules loaded successfully");
