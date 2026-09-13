@@ -79,24 +79,30 @@ async function getConfigValue() {
         `[ARCH] Fetched init.js (${initCode.length} bytes)`
       );
 
-      console.log("[ARCH] Executing init.js...");
+      console.log("[ARCH] Executing init.js as an ES module...");
 
-      /*
-       * Execute init.js as an async function.
-       *
-       * This allows init.js to use:
-       *
-       *     await importPackage("package")
-       *
-       * because the generated function itself is async.
-       */
-      const executeInit = new Function(`
-        return (async () => {
-          ${initCode}
-        })();
-      `);
+      // Execute init.js as a real ES module so it can use named
+      // exports and top-level await. The module namespace is then
+      // projected onto globalThis so every project JavaScript
+      // file can use exported init bindings without importing them.
+      //
+      // Using the real init.js URL (rather than a Blob URL) also
+      // means relative imports inside init.js continue to resolve
+      // relative to ./arch/init.js normally.
+      const initModule = await import(
+        new URL(initURL, window.location.href).href
+      );
 
-      await executeInit();
+      const exportedNames = Object.keys(initModule);
+
+      for (const exportName of exportedNames) {
+        globalThis[exportName] = initModule[exportName];
+      }
+
+      console.log(
+        `[ARCH] init.js exported ${exportedNames.length} binding(s):`,
+        exportedNames
+      );
 
       console.log("[ARCH] init.js executed successfully");
 
