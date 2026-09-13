@@ -1,0 +1,69 @@
+name: One-time playground button fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.event.head_commit.message == 'Run targeted playground button fix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply targeted fix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text()
+
+          old_css = '.compiled-actions{grid-column:1/-1;display:flex;gap:10px;padding:14px 20px 20px;border-top:1px solid rgba(241,235,227,.09)}.package-demo .button{padding:9px 15px;font-size:14px}'
+          new_css = '.compiled-actions{grid-column:1/-1;display:flex;gap:10px;padding:14px 20px 20px;border-top:1px solid rgba(241,235,227,.09)}.package-demo .button{padding:9px 15px;font-size:14px;color:#F1EBE3}.package-demo .button.secondary:hover{color:#F1EBE3;background:#211D19;border-color:rgba(198,97,63,.5)}'
+          if old_css not in s:
+              raise SystemExit('expected playground button CSS not found')
+          s = s.replace(old_css, new_css, 1)
+
+          old_html = '<div class="compiled-panel"><div class="panel-head"><span>Compiled JavaScript</span></div><div class="compiled-empty" id="compiled-empty">Run a package to inspect the generated browser code.</div><textarea id="compiled-output" class="compiled-output" readonly="" hidden=""></textarea></div><div class="compiled-actions"><button id="compiled-view" class="button secondary" type="button" hidden="">View compiled JS</button><button id="compiled-copy" class="button secondary" type="button" hidden="">Copy compiled JS</button></div>'
+          new_html = '<div class="compiled-panel"><div class="panel-head"><span>Compiled JavaScript</span></div><div class="compiled-empty" id="compiled-empty">Run a package to inspect the generated browser code.</div><textarea id="compiled-output" class="compiled-output" readonly="" hidden=""></textarea></div><div class="compiled-actions"><button id="compiled-copy" class="button secondary" type="button" hidden="">Copy compiled JS</button></div>'
+          if old_html not in s:
+              raise SystemExit('expected playground button HTML not found')
+          s = s.replace(old_html, new_html, 1)
+
+          old_js = '      empty.hidden = true; output.value = compiledCode; view.hidden = false; copy.hidden = false;'
+          new_js = '      empty.hidden = true; output.hidden = false; copy.hidden = false;'
+          if old_js not in s:
+              raise SystemExit('expected playground completion JS not found')
+          s = s.replace(old_js, new_js, 1)
+
+          old_js2 = '  const view = document.getElementById("compiled-view");\n'
+          if old_js2 not in s:
+              raise SystemExit('compiled view reference not found')
+          s = s.replace(old_js2, '', 1)
+
+          old_js3 = '  view.addEventListener("click", () => { output.hidden = !output.hidden; view.textContent = output.hidden ? "View compiled JS" : "Hide compiled JS"; });\n'
+          if old_js3 not in s:
+              raise SystemExit('compiled view handler not found')
+          s = s.replace(old_js3, '', 1)
+
+          old_reset = '    run.disabled = true; run.textContent = "Installing..."; logs.textContent = ""; output.value = ""; output.hidden = true; empty.hidden = false; view.hidden = true; copy.hidden = true;'
+          new_reset = '    run.disabled = true; run.textContent = "Installing..."; logs.textContent = ""; output.value = ""; output.hidden = true; empty.hidden = false; copy.hidden = true;'
+          if old_reset not in s:
+              raise SystemExit('playground reset JS not found')
+          s = s.replace(old_reset, new_reset, 1)
+
+          p.write_text(s)
+          PY
+          git diff --check
+          grep -q 'id="compiled-copy"' index.html
+          ! grep -q 'id="compiled-view"' index.html
+          grep -q '.package-demo .button.secondary:hover' index.html
+          git config user.name "ARCH.js updater"
+          git config user.email "arch-updater@localhost"
+          git add index.html
+          git rm .github/workflows/fix-playground-buttons.yml
+          git commit -m "Simplify playground output controls"
+          git push origin HEAD:main
