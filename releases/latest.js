@@ -1,3 +1,24 @@
+// ==================================================
+// ARCH.js browser runtime
+// ==================================================
+
+// Keep a stable bootstrap object so user code can immediately do:
+//
+//   <script src="https://chibbit-99.github.io/arch.js/releases/latest.js"></script>
+//   <script type="module">
+//     await ARCH.ready;
+//     const THREE = await importPackage("three");
+//   </script>
+//
+// The npm loader later replaces globalThis.ARCH with its own internal
+// object, so the ready promise is also written back onto that object
+// once module loading has completed.
+const __ARCH_BOOTSTRAP = {
+  ready: null
+};
+
+globalThis.ARCH = __ARCH_BOOTSTRAP;
+
 async function getConfigValue() {
   try {
     // ==================================================
@@ -27,12 +48,11 @@ async function getConfigValue() {
       );
 
       const script = document.createElement("script");
-
       script.textContent = code;
 
       console.log(`[ARCH] Injecting module: ${moduleName}`);
 
-      document.body.appendChild(script);
+      (document.head || document.body || document.documentElement).appendChild(script);
 
       console.log(`[ARCH] Module loaded: ${moduleName}`);
 
@@ -83,11 +103,9 @@ async function getConfigValue() {
 
     const response = await fetch("./arch/config.json");
 
-    // --------------------------------------------------
-    // Development fallback when config.json is missing
-    // --------------------------------------------------
-
-    let config;
+    // ==================================================
+    // Prototype mode: no config.json
+    // ==================================================
 
     if (response.status === 404) {
       const docsURL =
@@ -101,51 +119,39 @@ async function getConfigValue() {
 
       await loadAllModulesFallback();
 
-      // Continue through the normal startup pipeline using the
-      // conventional ARCH project entry point when no config exists.
-      config = {
-        js: "./src/main.js"
-      };
-
-      console.warn(
-        "[ARCH] Using fallback project entry: ./src/main.js"
+      console.log(
+        "[ARCH] Prototype mode ready. No config-based project files will be loaded."
       );
 
-    } else {
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-
-      config = await response.json();
-
-      console.log("[ARCH] Config loaded:", config);
+      // Prototype mode deliberately stops here. The page that loaded
+      // ARCH is now responsible for importing packages and running code.
+      globalThis.ARCH.ready = __ARCH_BOOTSTRAP.ready;
+      return null;
     }
 
-    // Make sure modules exists and is an array when config.json
-    // was actually provided. In fallback mode all available
-    // modules have already been discovered and loaded above.
-    if (config.modules !== undefined && !Array.isArray(config.modules)) {
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
+    const config = await response.json();
+
+    console.log("[ARCH] Config loaded:", config);
+
+    // ==================================================
+    // Load ARCH modules from config
+    // ==================================================
+
+    if (!Array.isArray(config.modules)) {
       throw new Error("[ARCH] config.modules must be an array");
     }
 
-    if (Array.isArray(config.modules)) {
-      console.log(`[ARCH] Found ${config.modules.length} module(s)`);
+    console.log(`[ARCH] Found ${config.modules.length} module(s)`);
 
-      // ==================================================
-      // Load ARCH modules
-      // ==================================================
-
-      for (const moduleName of config.modules) {
-        await loadModule(moduleName);
-      }
-
-      console.log("[ARCH] All modules loaded successfully");
-    } else {
-      console.log(
-        "[ARCH] Config module list skipped because automatic module discovery was used"
-      );
+    for (const moduleName of config.modules) {
+      await loadModule(moduleName);
     }
+
+    console.log("[ARCH] All modules loaded successfully");
 
     // ==================================================
     // Load arch/init.js
@@ -166,14 +172,6 @@ async function getConfigValue() {
 
       console.log("[ARCH] Executing init.js as an ES module...");
 
-      // Execute init.js as a real ES module so it can use named
-      // exports and top-level await. The module namespace is then
-      // projected onto globalThis so every project JavaScript
-      // file can use exported init bindings without importing them.
-      //
-      // Using the real init.js URL (rather than a Blob URL) also
-      // means relative imports inside init.js continue to resolve
-      // relative to ./arch/init.js normally.
       const initModule = await import(
         new URL(initURL, window.location.href).href
       );
@@ -214,19 +212,9 @@ async function getConfigValue() {
         '[ARCH] No "js" property found in config.json. No project JavaScript files will be executed.'
       );
 
+      console.log("[ARCH] Project startup complete");
       return config;
     }
-
-    // Support both:
-    //
-    // "js": "./src/main.js"
-    //
-    // and:
-    //
-    // "js": [
-    //   "./src/components.js",
-    //   "./src/main.js"
-    // ]
 
     const jsFiles = Array.isArray(config.js)
       ? config.js
@@ -235,10 +223,6 @@ async function getConfigValue() {
     console.log(
       `[ARCH] Found ${jsFiles.length} project JavaScript file(s)`
     );
-
-    // ==================================================
-    // Fetch all project JavaScript files concurrently
-    // ==================================================
 
     console.log("[ARCH] Fetching project JavaScript files...");
 
@@ -279,10 +263,6 @@ async function getConfigValue() {
       })
     );
 
-    // ==================================================
-    // Execute project JavaScript files in config order
-    // ==================================================
-
     console.log("[ARCH] Executing project JavaScript files...");
 
     for (const result of jsResults) {
@@ -297,19 +277,14 @@ async function getConfigValue() {
       );
 
       const jsScript = document.createElement("script");
-
       jsScript.textContent = code;
 
-      document.body.appendChild(jsScript);
+      (document.head || document.body || document.documentElement).appendChild(jsScript);
 
       console.log(
         `[ARCH] Project JavaScript executed successfully: ${file}`
       );
     }
-
-    // ==================================================
-    // Finished
-    // ==================================================
 
     console.log("[ARCH] Project startup complete");
 
@@ -317,7 +292,23 @@ async function getConfigValue() {
 
   } catch (error) {
     console.error("[ARCH] Failed to start project:", error);
+    throw error;
   }
 }
 
-getConfigValue();
+const __ARCH_READY = getConfigValue();
+
+__ARCH_BOOTSTRAP.ready = __ARCH_READY;
+
+__ARCH_READY.then(
+  () => {
+    if (globalThis.ARCH) {
+      globalThis.ARCH.ready = __ARCH_READY;
+    }
+  },
+  () => {
+    if (globalThis.ARCH) {
+      globalThis.ARCH.ready = __ARCH_READY;
+    }
+  }
+);
