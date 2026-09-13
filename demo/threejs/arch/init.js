@@ -1,1 +1,1 @@
-const three = await importPackage("three")
+export const THREE = await importPackage("three");
