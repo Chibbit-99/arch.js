@@ -58,9 +58,7 @@ jobs:
             fs.readFileSync("packages.json", "utf8")
           );
 
-          console.log(
-            `Found ${packages.length} npm packages`
-          );
+          console.log(`Found ${packages.length} npm packages`);
           EOF
 
       - name: Select next 1000 packages
@@ -82,10 +80,7 @@ jobs:
             offset = progress.offset || 0;
           }
 
-          const batch = packages.slice(
-            offset,
-            offset + 1000
-          );
+          const batch = packages.slice(offset, offset + 1000);
 
           if (batch.length === 0) {
             console.log("No packages left to test.");
@@ -111,346 +106,249 @@ jobs:
       - name: Run ARCH.js compatibility tests
         run: |
           node <<'EOF'
-          const fs = require("fs");
-          const http = require("http");
-          const { chromium } = require("playwright");
+          (async () => {
+            const fs = require("fs");
+            const http = require("http");
+            const { chromium } = require("playwright");
 
-          const packages = JSON.parse(
-            fs.readFileSync(
-              "batch.json",
-              "utf8"
-            )
-          );
+            const packages = JSON.parse(
+              fs.readFileSync("batch.json", "utf8")
+            );
 
-          if (packages.length === 0) {
-            console.log("Nothing to test.");
-            process.exit(0);
-          }
-
-          fs.mkdirSync(
-            "results",
-            {
-              recursive: true
+            if (packages.length === 0) {
+              console.log("Nothing to test.");
+              return;
             }
-          );
 
-          let currentPackage = null;
+            fs.mkdirSync("results", {
+              recursive: true
+            });
 
-          const server =
-            http.createServer(
-              (req, res) => {
+            let currentPackage = null;
 
-                if (req.url !== "/") {
-                  res.writeHead(404);
-                  res.end();
-                  return;
-                }
+            const server = http.createServer((req, res) => {
+              if (req.url !== "/") {
+                res.writeHead(404);
+                res.end();
+                return;
+              }
 
-                const html = `<!DOCTYPE html>
+              const html = `<!DOCTYPE html>
           <html>
           <head>
             <meta charset="UTF-8">
-
             <script src="https://chibbit-99.github.io/arch.js/releases/latest.js"></script>
           </head>
 
           <body>
-
-          <script type="module">
-
-          window.__ARCH_TEST__ = {
-            done: false,
-            status: "running",
-            error: null,
-            loadTime: null,
-            exports: []
-          };
-
-          (async () => {
-
-            const started =
-              performance.now();
-
-            try {
-
-              const result =
-                await importPackage(
-                  ${JSON.stringify(currentPackage)}
-                );
-
+            <script type="module">
               window.__ARCH_TEST__ = {
-                done: true,
-                status: "passed",
+                done: false,
+                status: "running",
                 error: null,
-
-                loadTime:
-                  performance.now() -
-                  started,
-
-                exports:
-                  result &&
-                  typeof result === "object"
-                    ? Object.keys(result)
-                    : []
-              };
-
-            } catch (error) {
-
-              window.__ARCH_TEST__ = {
-                done: true,
-                status: "failed",
-
-                error: String(
-                  error?.stack ||
-                  error?.message ||
-                  error
-                ).slice(0, 10000),
-
-                loadTime:
-                  performance.now() -
-                  started,
-
+                loadTime: null,
                 exports: []
               };
 
-            }
+              (async () => {
+                const started = performance.now();
 
-          })();
+                try {
+                  const result = await importPackage(
+                    ${JSON.stringify(currentPackage)}
+                  );
 
-          </script>
-
+                  window.__ARCH_TEST__ = {
+                    done: true,
+                    status: "passed",
+                    error: null,
+                    loadTime: performance.now() - started,
+                    exports:
+                      result && typeof result === "object"
+                        ? Object.keys(result)
+                        : []
+                  };
+                } catch (error) {
+                  window.__ARCH_TEST__ = {
+                    done: true,
+                    status: "failed",
+                    error: String(
+                      error?.stack ||
+                      error?.message ||
+                      error
+                    ).slice(0, 10000),
+                    loadTime: performance.now() - started,
+                    exports: []
+                  };
+                }
+              })();
+            </script>
           </body>
           </html>`;
 
-                res.writeHead(
-                  200,
-                  {
-                    "Content-Type":
-                      "text/html"
-                  }
-                );
+              res.writeHead(200, {
+                "Content-Type": "text/html"
+              });
 
-                res.end(html);
-              }
-            );
+              res.end(html);
+            });
 
-          await new Promise(
-            resolve => {
+            await new Promise((resolve, reject) => {
+              server.once("error", reject);
+
               server.listen(
                 4173,
                 "127.0.0.1",
                 resolve
               );
-            }
-          );
+            });
 
-          console.log(
-            "Test server running."
-          );
+            console.log(
+              "Test server running at http://127.0.0.1:4173"
+            );
 
-          const browser =
-            await chromium.launch({
+            const browser = await chromium.launch({
               headless: true
             });
 
-          const results = [];
+            const results = [];
 
-          for (
-            let i = 0;
-            i < packages.length;
-            i++
-          ) {
+            for (let i = 0; i < packages.length; i++) {
+              currentPackage = packages[i];
 
-            currentPackage =
-              packages[i];
+              console.log("");
+              console.log(
+                `[${i + 1}/${packages.length}] ${currentPackage}`
+              );
+
+              const started = Date.now();
+              let page = null;
+
+              try {
+                page = await browser.newPage();
+
+                await page.goto(
+                  "http://127.0.0.1:4173/",
+                  {
+                    waitUntil: "domcontentloaded",
+                    timeout: 30000
+                  }
+                );
+
+                await page.waitForFunction(
+                  () =>
+                    window.__ARCH_TEST__ &&
+                    window.__ARCH_TEST__.done === true,
+                  {
+                    timeout: 60000
+                  }
+                );
+
+                const result = await page.evaluate(
+                  () => window.__ARCH_TEST__
+                );
+
+                results.push({
+                  package: currentPackage,
+                  status: result.status,
+                  error: result.error,
+                  loadTime: result.loadTime,
+                  exports: result.exports,
+                  testTime: Date.now() - started,
+                  testedAt: new Date().toISOString()
+                });
+
+                console.log(
+                  `Result: ${result.status}`
+                );
+
+                if (result.status === "passed") {
+                  console.log(
+                    `Exports: ${result.exports.length}`
+                  );
+                }
+
+              } catch (error) {
+                results.push({
+                  package: currentPackage,
+                  status: "timeout",
+                  error: String(error).slice(0, 10000),
+                  loadTime: null,
+                  exports: [],
+                  testTime: Date.now() - started,
+                  testedAt: new Date().toISOString()
+                });
+
+                console.log(
+                  "Result: timeout/error"
+                );
+
+              } finally {
+                if (page) {
+                  await page.close();
+                }
+              }
+            }
+
+            await browser.close();
+            server.close();
+
+            const timestamp = new Date()
+              .toISOString()
+              .replace(/[:.]/g, "-");
+
+            const output =
+              `results/${timestamp}.json`;
+
+            fs.writeFileSync(
+              output,
+              JSON.stringify(results, null, 2)
+            );
+
+            const passed = results.filter(
+              x => x.status === "passed"
+            ).length;
+
+            const failed = results.filter(
+              x => x.status === "failed"
+            ).length;
+
+            const timeout = results.filter(
+              x => x.status === "timeout"
+            ).length;
 
             console.log("");
             console.log(
-              `[${i + 1}/${packages.length}] ${currentPackage}`
+              "================================"
             );
-
-            const started =
-              Date.now();
-
-            let page = null;
-
-            try {
-
-              page =
-                await browser.newPage();
-
-              await page.goto(
-                "http://127.0.0.1:4173/",
-                {
-                  waitUntil:
-                    "domcontentloaded",
-                  timeout: 30000
-                }
-              );
-
-              await page.waitForFunction(
-                () =>
-                  window.__ARCH_TEST__ &&
-                  window.__ARCH_TEST__.done === true,
-                {
-                  timeout: 60000
-                }
-              );
-
-              const result =
-                await page.evaluate(
-                  () =>
-                    window.__ARCH_TEST__
-                );
-
-              results.push({
-                package:
-                  currentPackage,
-
-                status:
-                  result.status,
-
-                error:
-                  result.error,
-
-                loadTime:
-                  result.loadTime,
-
-                exports:
-                  result.exports,
-
-                testTime:
-                  Date.now() - started,
-
-                testedAt:
-                  new Date().toISOString()
-              });
-
-              console.log(
-                `Result: ${result.status}`
-              );
-
-              if (
-                result.status ===
-                "passed"
-              ) {
-                console.log(
-                  `Exports: ${result.exports.length}`
-                );
-              }
-
-            } catch (error) {
-
-              results.push({
-                package:
-                  currentPackage,
-
-                status:
-                  "timeout",
-
-                error:
-                  String(error)
-                    .slice(0, 10000),
-
-                loadTime:
-                  null,
-
-                exports: [],
-
-                testTime:
-                  Date.now() - started,
-
-                testedAt:
-                  new Date().toISOString()
-              });
-
-              console.log(
-                "Result: timeout/error"
-              );
-
-            } finally {
-
-              if (page) {
-                await page.close();
-              }
-
-            }
-          }
-
-          await browser.close();
-
-          server.close();
-
-          const timestamp =
-            new Date()
-              .toISOString()
-              .replace(
-                /[:.]/g,
-                "-"
-              );
-
-          const output =
-            `results/${timestamp}.json`;
-
-          fs.writeFileSync(
-            output,
-            JSON.stringify(
-              results,
-              null,
-              2
-            )
-          );
-
-          const passed =
-            results.filter(
-              x =>
-                x.status ===
-                "passed"
-            ).length;
-
-          const failed =
-            results.filter(
-              x =>
-                x.status ===
-                "failed"
-            ).length;
-
-          const timeout =
-            results.filter(
-              x =>
-                x.status ===
-                "timeout"
-            ).length;
-
-          console.log("");
-          console.log(
-            "================================"
-          );
-          console.log(
-            "       ARCH.js RESULTS"
-          );
-          console.log(
-            "================================"
-          );
-          console.log(
-            `Packages: ${results.length}`
-          );
-          console.log(
-            `Passed:   ${passed}`
-          );
-          console.log(
-            `Failed:   ${failed}`
-          );
-          console.log(
-            `Timeout:  ${timeout}`
-          );
-          console.log(
-            "================================"
-          );
-
-          console.log(
-            `Results saved to ${output}`
-          );
+            console.log(
+              "       ARCH.js RESULTS"
+            );
+            console.log(
+              "================================"
+            );
+            console.log(
+              `Packages: ${results.length}`
+            );
+            console.log(
+              `Passed:   ${passed}`
+            );
+            console.log(
+              `Failed:   ${failed}`
+            );
+            console.log(
+              `Timeout:  ${timeout}`
+            );
+            console.log(
+              "================================"
+            );
+            console.log(
+              `Results saved to ${output}`
+            );
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
           EOF
 
       - name: Update progress
@@ -458,63 +356,39 @@ jobs:
           node <<'EOF'
           const fs = require("fs");
 
-          const batch =
-            JSON.parse(
-              fs.readFileSync(
-                "batch.json",
-                "utf8"
-              )
-            );
+          const batch = JSON.parse(
+            fs.readFileSync("batch.json", "utf8")
+          );
 
           if (batch.length === 0) {
-            console.log(
-              "No progress to update."
-            );
-
+            console.log("No progress to update.");
             process.exit(0);
           }
 
           let offset = 0;
 
-          if (
-            fs.existsSync(
-              "progress.json"
-            )
-          ) {
+          if (fs.existsSync("progress.json")) {
+            const progress = JSON.parse(
+              fs.readFileSync(
+                "progress.json",
+                "utf8"
+              )
+            );
 
-            const progress =
-              JSON.parse(
-                fs.readFileSync(
-                  "progress.json",
-                  "utf8"
-                )
-              );
-
-            offset =
-              progress.offset || 0;
+            offset = progress.offset || 0;
           }
 
-          const newOffset =
-            offset + batch.length;
+          const newOffset = offset + batch.length;
 
           const progress = {
-            offset:
-              newOffset,
-
-            packagesTested:
-              newOffset,
-
-            lastRun:
-              new Date().toISOString()
+            offset: newOffset,
+            packagesTested: newOffset,
+            lastRun: new Date().toISOString()
           };
 
           fs.writeFileSync(
             "progress.json",
-            JSON.stringify(
-              progress,
-              null,
-              2
-            ) + "\n"
+            JSON.stringify(progress, null, 2) + "\n"
           );
 
           console.log(
@@ -527,9 +401,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add \
-            results/ \
-            progress.json
+          git add results/ progress.json
 
           if git diff --cached --quiet; then
             echo "Nothing to commit."
