@@ -1,0 +1,271 @@
+name: ARCH.js npm Compatibility Lab
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright
+        run: |
+          npm install playwright
+          npx playwright install --with-deps chromium
+
+      - name: Get npm package list
+        run: |
+          curl -L \
+            https://raw.githubusercontent.com/bconnorwhite/all-the-package-names/master/package-names.json \
+            -o packages.json
+
+      - name: Select next 1000 packages
+        run: |
+          node <<'EOF'
+          const fs = require("fs");
+
+          const packages = JSON.parse(
+            fs.readFileSync("packages.json", "utf8")
+          );
+
+          let offset = 0;
+
+          if (fs.existsSync("progress.json")) {
+            offset = JSON.parse(
+              fs.readFileSync("progress.json", "utf8")
+            ).offset;
+          }
+
+          const batch = packages.slice(offset, offset + 1000);
+
+          fs.writeFileSync(
+            "batch.json",
+            JSON.stringify(batch, null, 2)
+          );
+
+          console.log(
+            `Testing ${batch.length} packages (${offset} → ${offset + batch.length})`
+          );
+          EOF
+
+      - name: Run ARCH.js compatibility tests
+        run: |
+          node <<'EOF'
+          const fs = require("fs");
+          const http = require("http");
+          const { chromium } = require("playwright");
+
+          const packages = JSON.parse(
+            fs.readFileSync("batch.json", "utf8")
+          );
+
+          fs.mkdirSync("results", { recursive: true });
+
+          let currentPackage = null;
+
+          const server = http.createServer((req, res) => {
+            if (req.url !== "/") {
+              res.writeHead(404);
+              res.end();
+              return;
+            }
+
+            const html = `<!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <script src="https://chibbit-99.github.io/arch.js/releases/latest.js"></script>
+          </head>
+          <body>
+          <script type="module">
+          window.__ARCH_TEST__ = {
+            done: false,
+            status: "running",
+            error: null,
+            loadTime: null,
+            exports: []
+          };
+
+          (async () => {
+            const started = performance.now();
+
+            try {
+              const result = await importPackage(
+                ${JSON.stringify(currentPackage)}
+              );
+
+              window.__ARCH_TEST__ = {
+                done: true,
+                status: "passed",
+                error: null,
+                loadTime: performance.now() - started,
+                exports:
+                  result && typeof result === "object"
+                    ? Object.keys(result)
+                    : []
+              };
+            } catch (error) {
+              window.__ARCH_TEST__ = {
+                done: true,
+                status: "failed",
+                error: String(
+                  error?.stack ||
+                  error?.message ||
+                  error
+                ),
+                loadTime: performance.now() - started,
+                exports: []
+              };
+            }
+          })();
+          </script>
+          </body>
+          </html>`;
+
+            res.writeHead(200, {
+              "Content-Type": "text/html"
+            });
+
+            res.end(html);
+          });
+
+          server.listen(4173, "127.0.0.1");
+
+          const browser = await chromium.launch({
+            headless: true
+          });
+
+          const page = await browser.newPage();
+
+          const results = [];
+
+          for (let i = 0; i < packages.length; i++) {
+            currentPackage = packages[i];
+
+            console.log(
+              `[${i + 1}/${packages.length}] ${currentPackage}`
+            );
+
+            try {
+              await page.goto(
+                "http://127.0.0.1:4173/",
+                {
+                  waitUntil: "domcontentloaded",
+                  timeout: 30000
+                }
+              );
+
+              await page.waitForFunction(
+                () => window.__ARCH_TEST__.done,
+                {
+                  timeout: 60000
+                }
+              );
+
+              const result = await page.evaluate(
+                () => window.__ARCH_TEST__
+              );
+
+              results.push({
+                package: currentPackage,
+                ...result,
+                testedAt: new Date().toISOString()
+              });
+
+            } catch (error) {
+              results.push({
+                package: currentPackage,
+                status: "timeout",
+                error: String(error),
+                loadTime: null,
+                exports: [],
+                testedAt: new Date().toISOString()
+              });
+            }
+          }
+
+          await browser.close();
+          server.close();
+
+          const passed = results.filter(
+            x => x.status === "passed"
+          ).length;
+
+          const failed = results.filter(
+            x => x.status === "failed"
+          ).length;
+
+          const timeout = results.filter(
+            x => x.status === "timeout"
+          ).length;
+
+          console.log("");
+          console.log("========== ARCH.js RESULTS ==========");
+          console.log(`Packages: ${results.length}`);
+          console.log(`Passed:   ${passed}`);
+          console.log(`Failed:   ${failed}`);
+          console.log(`Timeout:  ${timeout}`);
+          console.log("=====================================");
+
+          const timestamp =
+            new Date().toISOString()
+              .replace(/[:.]/g, "-");
+
+          fs.writeFileSync(
+            `results/${timestamp}.json`,
+            JSON.stringify(results, null, 2)
+          );
+          EOF
+
+      - name: Advance progress
+        run: |
+          node <<'EOF'
+          const fs = require("fs");
+
+          let offset = 0;
+
+          if (fs.existsSync("progress.json")) {
+            offset = JSON.parse(
+              fs.readFileSync("progress.json", "utf8")
+            ).offset;
+          }
+
+          const batch = JSON.parse(
+            fs.readFileSync("batch.json", "utf8")
+          );
+
+          fs.writeFileSync(
+            "progress.json",
+            JSON.stringify({
+              offset: offset + batch.length,
+              lastRun: new Date().toISOString()
+            }, null, 2) + "\n"
+          );
+          EOF
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add results/ progress.json
+
+          git commit \
+            -m "chore: test next npm compatibility batch" \
+            || echo "Nothing to commit"
+
+          git push
