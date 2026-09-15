@@ -17,14 +17,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install Playwright
         run: |
-          npm install playwright
+          npm install --no-save playwright
           npx playwright install --with-deps chromium
 
       - name: Get npm package list
@@ -42,12 +42,12 @@ jobs:
           echo "Package contents:"
           find package-data -maxdepth 2 -type f
 
-          if [ ! -f package-data/package-names.json ]; then
-            echo "ERROR: package-names.json was not found"
+          if [ ! -f package-data/names.json ]; then
+            echo "ERROR: names.json was not found"
             exit 1
           fi
 
-          cp package-data/package-names.json packages.json
+          cp package-data/names.json packages.json
 
           rm -rf package-data "$TARBALL"
 
@@ -58,7 +58,9 @@ jobs:
             fs.readFileSync("packages.json", "utf8")
           );
 
-          console.log(`Found ${packages.length} npm packages`);
+          console.log(
+            `Found ${packages.length} npm packages`
+          );
           EOF
 
       - name: Select next 1000 packages
@@ -87,6 +89,12 @@ jobs:
 
           if (batch.length === 0) {
             console.log("No packages left to test.");
+
+            fs.writeFileSync(
+              "batch.json",
+              "[]"
+            );
+
             process.exit(0);
           }
 
@@ -108,23 +116,37 @@ jobs:
           const { chromium } = require("playwright");
 
           const packages = JSON.parse(
-            fs.readFileSync("batch.json", "utf8")
+            fs.readFileSync(
+              "batch.json",
+              "utf8"
+            )
           );
 
-          fs.mkdirSync("results", {
-            recursive: true
-          });
+          if (packages.length === 0) {
+            console.log("Nothing to test.");
+            process.exit(0);
+          }
+
+          fs.mkdirSync(
+            "results",
+            {
+              recursive: true
+            }
+          );
 
           let currentPackage = null;
 
-          const server = http.createServer((req, res) => {
-            if (req.url !== "/") {
-              res.writeHead(404);
-              res.end();
-              return;
-            }
+          const server =
+            http.createServer(
+              (req, res) => {
 
-            const html = `<!DOCTYPE html>
+                if (req.url !== "/") {
+                  res.writeHead(404);
+                  res.end();
+                  return;
+                }
+
+                const html = `<!DOCTYPE html>
           <html>
           <head>
             <meta charset="UTF-8">
@@ -146,19 +168,25 @@ jobs:
 
           (async () => {
 
-            const started = performance.now();
+            const started =
+              performance.now();
 
             try {
 
-              const result = await importPackage(
-                ${JSON.stringify(currentPackage)}
-              );
+              const result =
+                await importPackage(
+                  ${JSON.stringify(currentPackage)}
+                );
 
               window.__ARCH_TEST__ = {
                 done: true,
                 status: "passed",
                 error: null,
-                loadTime: performance.now() - started,
+
+                loadTime:
+                  performance.now() -
+                  started,
+
                 exports:
                   result &&
                   typeof result === "object"
@@ -171,12 +199,17 @@ jobs:
               window.__ARCH_TEST__ = {
                 done: true,
                 status: "failed",
+
                 error: String(
                   error?.stack ||
                   error?.message ||
                   error
                 ).slice(0, 10000),
-                loadTime: performance.now() - started,
+
+                loadTime:
+                  performance.now() -
+                  started,
+
                 exports: []
               };
 
@@ -189,28 +222,36 @@ jobs:
           </body>
           </html>`;
 
-            res.writeHead(200, {
-              "Content-Type": "text/html"
-            });
+                res.writeHead(
+                  200,
+                  {
+                    "Content-Type":
+                      "text/html"
+                  }
+                );
 
-            res.end(html);
-          });
-
-          await new Promise(resolve => {
-            server.listen(
-              4173,
-              "127.0.0.1",
-              resolve
+                res.end(html);
+              }
             );
-          });
 
-          console.log(
-            "Test server running on http://127.0.0.1:4173"
+          await new Promise(
+            resolve => {
+              server.listen(
+                4173,
+                "127.0.0.1",
+                resolve
+              );
+            }
           );
 
-          const browser = await chromium.launch({
-            headless: true
-          });
+          console.log(
+            "Test server running."
+          );
+
+          const browser =
+            await chromium.launch({
+              headless: true
+            });
 
           const results = [];
 
@@ -220,28 +261,67 @@ jobs:
             i++
           ) {
 
-            currentPackage = packages[i];
+            currentPackage =
+              packages[i];
 
             console.log("");
             console.log(
               `[${i + 1}/${packages.length}] ${currentPackage}`
             );
 
-            const started = Date.now();
+            const started =
+              Date.now();
+
+            let page = null;
 
             try {
 
-              await pageGoto();
+              page =
+                await browser.newPage();
+
+              await page.goto(
+                "http://127.0.0.1:4173/",
+                {
+                  waitUntil:
+                    "domcontentloaded",
+                  timeout: 30000
+                }
+              );
+
+              await page.waitForFunction(
+                () =>
+                  window.__ARCH_TEST__ &&
+                  window.__ARCH_TEST__.done === true,
+                {
+                  timeout: 60000
+                }
+              );
 
               const result =
-                await waitForResult();
+                await page.evaluate(
+                  () =>
+                    window.__ARCH_TEST__
+                );
 
               results.push({
-                package: currentPackage,
-                status: result.status,
-                error: result.error,
-                loadTime: result.loadTime,
-                exports: result.exports,
+                package:
+                  currentPackage,
+
+                status:
+                  result.status,
+
+                error:
+                  result.error,
+
+                loadTime:
+                  result.loadTime,
+
+                exports:
+                  result.exports,
+
+                testTime:
+                  Date.now() - started,
+
                 testedAt:
                   new Date().toISOString()
               });
@@ -250,14 +330,36 @@ jobs:
                 `Result: ${result.status}`
               );
 
+              if (
+                result.status ===
+                "passed"
+              ) {
+                console.log(
+                  `Exports: ${result.exports.length}`
+                );
+              }
+
             } catch (error) {
 
               results.push({
-                package: currentPackage,
-                status: "timeout",
-                error: String(error),
-                loadTime: null,
+                package:
+                  currentPackage,
+
+                status:
+                  "timeout",
+
+                error:
+                  String(error)
+                    .slice(0, 10000),
+
+                loadTime:
+                  null,
+
                 exports: [],
+
+                testTime:
+                  Date.now() - started,
+
                 testedAt:
                   new Date().toISOString()
               });
@@ -265,41 +367,14 @@ jobs:
               console.log(
                 "Result: timeout/error"
               );
-            }
-          }
 
-          async function pageGoto() {
+            } finally {
 
-            if (!global.page) {
-
-              global.page =
-                await browser.newPage();
+              if (page) {
+                await page.close();
+              }
 
             }
-
-            await global.page.goto(
-              "http://127.0.0.1:4173/",
-              {
-                waitUntil: "domcontentloaded",
-                timeout: 30000
-              }
-            );
-          }
-
-          async function waitForResult() {
-
-            await global.page.waitForFunction(
-              () =>
-                window.__ARCH_TEST__ &&
-                window.__ARCH_TEST__.done === true,
-              {
-                timeout: 60000
-              }
-            );
-
-            return await global.page.evaluate(
-              () => window.__ARCH_TEST__
-            );
           }
 
           await browser.close();
@@ -309,7 +384,10 @@ jobs:
           const timestamp =
             new Date()
               .toISOString()
-              .replace(/[:.]/g, "-");
+              .replace(
+                /[:.]/g,
+                "-"
+              );
 
           const output =
             `results/${timestamp}.json`;
@@ -325,17 +403,23 @@ jobs:
 
           const passed =
             results.filter(
-              x => x.status === "passed"
+              x =>
+                x.status ===
+                "passed"
             ).length;
 
           const failed =
             results.filter(
-              x => x.status === "failed"
+              x =>
+                x.status ===
+                "failed"
             ).length;
 
           const timeout =
             results.filter(
-              x => x.status === "timeout"
+              x =>
+                x.status ===
+                "timeout"
             ).length;
 
           console.log("");
@@ -374,36 +458,54 @@ jobs:
           node <<'EOF'
           const fs = require("fs");
 
-          const batch = JSON.parse(
-            fs.readFileSync(
-              "batch.json",
-              "utf8"
-            )
-          );
-
-          let offset = 0;
-
-          if (fs.existsSync("progress.json")) {
-
-            const progress = JSON.parse(
+          const batch =
+            JSON.parse(
               fs.readFileSync(
-                "progress.json",
+                "batch.json",
                 "utf8"
               )
             );
 
-            offset = progress.offset || 0;
+          if (batch.length === 0) {
+            console.log(
+              "No progress to update."
+            );
+
+            process.exit(0);
+          }
+
+          let offset = 0;
+
+          if (
+            fs.existsSync(
+              "progress.json"
+            )
+          ) {
+
+            const progress =
+              JSON.parse(
+                fs.readFileSync(
+                  "progress.json",
+                  "utf8"
+                )
+              );
+
+            offset =
+              progress.offset || 0;
           }
 
           const newOffset =
             offset + batch.length;
 
           const progress = {
-            offset: newOffset,
-            lastRun:
-              new Date().toISOString(),
+            offset:
+              newOffset,
+
             packagesTested:
-              newOffset
+              newOffset,
+
+            lastRun:
+              new Date().toISOString()
           };
 
           fs.writeFileSync(
