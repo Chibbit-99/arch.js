@@ -29,9 +29,37 @@ jobs:
 
       - name: Get npm package list
         run: |
-          curl -L \
-            https://raw.githubusercontent.com/bconnorwhite/all-the-package-names/master/package-names.json \
-            -o packages.json
+          npm pack all-the-package-names --silent
+
+          TARBALL=$(ls all-the-package-names-*.tgz)
+
+          mkdir package-data
+
+          tar -xzf "$TARBALL" \
+            -C package-data \
+            --strip-components=1
+
+          echo "Package contents:"
+          find package-data -maxdepth 2 -type f
+
+          if [ ! -f package-data/package-names.json ]; then
+            echo "ERROR: package-names.json was not found"
+            exit 1
+          fi
+
+          cp package-data/package-names.json packages.json
+
+          rm -rf package-data "$TARBALL"
+
+          node <<'EOF'
+          const fs = require("fs");
+
+          const packages = JSON.parse(
+            fs.readFileSync("packages.json", "utf8")
+          );
+
+          console.log(`Found ${packages.length} npm packages`);
+          EOF
 
       - name: Select next 1000 packages
         run: |
@@ -45,12 +73,22 @@ jobs:
           let offset = 0;
 
           if (fs.existsSync("progress.json")) {
-            offset = JSON.parse(
+            const progress = JSON.parse(
               fs.readFileSync("progress.json", "utf8")
-            ).offset;
+            );
+
+            offset = progress.offset || 0;
           }
 
-          const batch = packages.slice(offset, offset + 1000);
+          const batch = packages.slice(
+            offset,
+            offset + 1000
+          );
+
+          if (batch.length === 0) {
+            console.log("No packages left to test.");
+            process.exit(0);
+          }
 
           fs.writeFileSync(
             "batch.json",
@@ -58,7 +96,7 @@ jobs:
           );
 
           console.log(
-            `Testing ${batch.length} packages (${offset} → ${offset + batch.length})`
+            `Testing packages ${offset + 1}-${offset + batch.length} of ${packages.length}`
           );
           EOF
 
@@ -73,7 +111,9 @@ jobs:
             fs.readFileSync("batch.json", "utf8")
           );
 
-          fs.mkdirSync("results", { recursive: true });
+          fs.mkdirSync("results", {
+            recursive: true
+          });
 
           let currentPackage = null;
 
@@ -88,10 +128,14 @@ jobs:
           <html>
           <head>
             <meta charset="UTF-8">
+
             <script src="https://chibbit-99.github.io/arch.js/releases/latest.js"></script>
           </head>
+
           <body>
+
           <script type="module">
+
           window.__ARCH_TEST__ = {
             done: false,
             status: "running",
@@ -101,9 +145,11 @@ jobs:
           };
 
           (async () => {
+
             const started = performance.now();
 
             try {
+
               const result = await importPackage(
                 ${JSON.stringify(currentPackage)}
               );
@@ -114,11 +160,14 @@ jobs:
                 error: null,
                 loadTime: performance.now() - started,
                 exports:
-                  result && typeof result === "object"
+                  result &&
+                  typeof result === "object"
                     ? Object.keys(result)
                     : []
               };
+
             } catch (error) {
+
               window.__ARCH_TEST__ = {
                 done: true,
                 status: "failed",
@@ -126,13 +175,17 @@ jobs:
                   error?.stack ||
                   error?.message ||
                   error
-                ),
+                ).slice(0, 10000),
                 loadTime: performance.now() - started,
                 exports: []
               };
+
             }
+
           })();
+
           </script>
+
           </body>
           </html>`;
 
@@ -143,117 +196,227 @@ jobs:
             res.end(html);
           });
 
-          server.listen(4173, "127.0.0.1");
+          await new Promise(resolve => {
+            server.listen(
+              4173,
+              "127.0.0.1",
+              resolve
+            );
+          });
+
+          console.log(
+            "Test server running on http://127.0.0.1:4173"
+          );
 
           const browser = await chromium.launch({
             headless: true
           });
 
-          const page = await browser.newPage();
-
           const results = [];
 
-          for (let i = 0; i < packages.length; i++) {
+          for (
+            let i = 0;
+            i < packages.length;
+            i++
+          ) {
+
             currentPackage = packages[i];
 
+            console.log("");
             console.log(
               `[${i + 1}/${packages.length}] ${currentPackage}`
             );
 
+            const started = Date.now();
+
             try {
-              await page.goto(
-                "http://127.0.0.1:4173/",
-                {
-                  waitUntil: "domcontentloaded",
-                  timeout: 30000
-                }
-              );
 
-              await page.waitForFunction(
-                () => window.__ARCH_TEST__.done,
-                {
-                  timeout: 60000
-                }
-              );
+              await pageGoto();
 
-              const result = await page.evaluate(
-                () => window.__ARCH_TEST__
-              );
+              const result =
+                await waitForResult();
 
               results.push({
                 package: currentPackage,
-                ...result,
-                testedAt: new Date().toISOString()
+                status: result.status,
+                error: result.error,
+                loadTime: result.loadTime,
+                exports: result.exports,
+                testedAt:
+                  new Date().toISOString()
               });
 
+              console.log(
+                `Result: ${result.status}`
+              );
+
             } catch (error) {
+
               results.push({
                 package: currentPackage,
                 status: "timeout",
                 error: String(error),
                 loadTime: null,
                 exports: [],
-                testedAt: new Date().toISOString()
+                testedAt:
+                  new Date().toISOString()
               });
+
+              console.log(
+                "Result: timeout/error"
+              );
             }
           }
 
+          async function pageGoto() {
+
+            if (!global.page) {
+
+              global.page =
+                await browser.newPage();
+
+            }
+
+            await global.page.goto(
+              "http://127.0.0.1:4173/",
+              {
+                waitUntil: "domcontentloaded",
+                timeout: 30000
+              }
+            );
+          }
+
+          async function waitForResult() {
+
+            await global.page.waitForFunction(
+              () =>
+                window.__ARCH_TEST__ &&
+                window.__ARCH_TEST__.done === true,
+              {
+                timeout: 60000
+              }
+            );
+
+            return await global.page.evaluate(
+              () => window.__ARCH_TEST__
+            );
+          }
+
           await browser.close();
+
           server.close();
 
-          const passed = results.filter(
-            x => x.status === "passed"
-          ).length;
-
-          const failed = results.filter(
-            x => x.status === "failed"
-          ).length;
-
-          const timeout = results.filter(
-            x => x.status === "timeout"
-          ).length;
-
-          console.log("");
-          console.log("========== ARCH.js RESULTS ==========");
-          console.log(`Packages: ${results.length}`);
-          console.log(`Passed:   ${passed}`);
-          console.log(`Failed:   ${failed}`);
-          console.log(`Timeout:  ${timeout}`);
-          console.log("=====================================");
-
           const timestamp =
-            new Date().toISOString()
+            new Date()
+              .toISOString()
               .replace(/[:.]/g, "-");
 
+          const output =
+            `results/${timestamp}.json`;
+
           fs.writeFileSync(
-            `results/${timestamp}.json`,
-            JSON.stringify(results, null, 2)
+            output,
+            JSON.stringify(
+              results,
+              null,
+              2
+            )
+          );
+
+          const passed =
+            results.filter(
+              x => x.status === "passed"
+            ).length;
+
+          const failed =
+            results.filter(
+              x => x.status === "failed"
+            ).length;
+
+          const timeout =
+            results.filter(
+              x => x.status === "timeout"
+            ).length;
+
+          console.log("");
+          console.log(
+            "================================"
+          );
+          console.log(
+            "       ARCH.js RESULTS"
+          );
+          console.log(
+            "================================"
+          );
+          console.log(
+            `Packages: ${results.length}`
+          );
+          console.log(
+            `Passed:   ${passed}`
+          );
+          console.log(
+            `Failed:   ${failed}`
+          );
+          console.log(
+            `Timeout:  ${timeout}`
+          );
+          console.log(
+            "================================"
+          );
+
+          console.log(
+            `Results saved to ${output}`
           );
           EOF
 
-      - name: Advance progress
+      - name: Update progress
         run: |
           node <<'EOF'
           const fs = require("fs");
 
+          const batch = JSON.parse(
+            fs.readFileSync(
+              "batch.json",
+              "utf8"
+            )
+          );
+
           let offset = 0;
 
           if (fs.existsSync("progress.json")) {
-            offset = JSON.parse(
-              fs.readFileSync("progress.json", "utf8")
-            ).offset;
+
+            const progress = JSON.parse(
+              fs.readFileSync(
+                "progress.json",
+                "utf8"
+              )
+            );
+
+            offset = progress.offset || 0;
           }
 
-          const batch = JSON.parse(
-            fs.readFileSync("batch.json", "utf8")
-          );
+          const newOffset =
+            offset + batch.length;
+
+          const progress = {
+            offset: newOffset,
+            lastRun:
+              new Date().toISOString(),
+            packagesTested:
+              newOffset
+          };
 
           fs.writeFileSync(
             "progress.json",
-            JSON.stringify({
-              offset: offset + batch.length,
-              lastRun: new Date().toISOString()
-            }, null, 2) + "\n"
+            JSON.stringify(
+              progress,
+              null,
+              2
+            ) + "\n"
+          );
+
+          console.log(
+            `Progress: ${newOffset} packages processed`
           );
           EOF
 
@@ -262,10 +425,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add results/ progress.json
+          git add \
+            results/ \
+            progress.json
 
-          git commit \
-            -m "chore: test next npm compatibility batch" \
-            || echo "Nothing to commit"
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+          else
+            git commit \
+              -m "chore: test next npm compatibility batch"
 
-          git push
+            git push
+          fi
