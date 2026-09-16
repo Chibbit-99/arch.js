@@ -32,12 +32,7 @@ jobs:
           node - <<'NODE'
           const fs = require("fs");
           const packages = require("all-the-package-names");
-
-          fs.writeFileSync(
-            "packages.json",
-            JSON.stringify(packages)
-          );
-
+          fs.writeFileSync("packages.json", JSON.stringify(packages));
           console.log(`Found ${packages.length} npm packages`);
           NODE
 
@@ -45,33 +40,17 @@ jobs:
         run: |
           node - <<'NODE'
           const fs = require("fs");
-
-          const packages = JSON.parse(
-            fs.readFileSync("packages.json", "utf8")
-          );
-
+          const packages = JSON.parse(fs.readFileSync("packages.json", "utf8"));
           let offset = 0;
-
           if (fs.existsSync("progress.json")) {
-            const progress = JSON.parse(
-              fs.readFileSync("progress.json", "utf8")
-            );
-
+            const progress = JSON.parse(fs.readFileSync("progress.json", "utf8"));
             offset = Number(progress.offset) || 0;
           }
-
           const batch = packages.slice(offset, offset + 5000);
-
-          fs.writeFileSync(
-            "batch.json",
-            JSON.stringify(batch)
-          );
-
+          fs.writeFileSync("batch.json", JSON.stringify(batch));
           console.log(`Starting at package index: ${offset}`);
           console.log(`Batch size: ${batch.length}`);
-          console.log(
-            `Range: ${offset + 1}-${offset + batch.length}`
-          );
+          console.log(`Range: ${offset + 1}-${offset + batch.length}`);
           NODE
 
       - name: Create compatibility tester
@@ -81,104 +60,103 @@ jobs:
           const http = require("http");
           const { chromium } = require("playwright");
 
+          const ARCH_BASE = "https://chibbit-99.github.io/arch.js/";
+          const CONCURRENCY = 8;
+          const RETRIES = 1;
+
+          function encodePackage(name) {
+            return Buffer.from(name, "utf8").toString("base64url");
+          }
+
+          function decodePackage(value) {
+            return Buffer.from(value, "base64url").toString("utf8");
+          }
+
+          async function testPackage(browser, packageName, workerId, attempt) {
+            const context = await browser.newContext();
+            const page = await context.newPage();
+            const consoleErrors = [];
+            const pageErrors = [];
+
+            page.on("pageerror", error => {
+              pageErrors.push(String(error?.stack || error));
+            });
+
+            page.on("console", message => {
+              if (message.type() === "error") {
+                consoleErrors.push(message.text());
+              }
+            });
+
+            try {
+              const encoded = encodePackage(packageName);
+
+              await page.goto(
+                `http://127.0.0.1:4173/test/${encoded}`,
+                { waitUntil: "domcontentloaded", timeout: 30000 }
+              );
+
+              await page.waitForFunction(
+                () => window.__ARCH_RESULT__ && window.__ARCH_RESULT__.done === true,
+                { timeout: 60000 }
+              );
+
+              return await page.evaluate(
+                ({ consoleErrors, pageErrors }) => ({
+                  ...window.__ARCH_RESULT__,
+                  consoleErrors,
+                  pageErrors
+                }),
+                { consoleErrors, pageErrors }
+              );
+            } finally {
+              await page.close();
+              await context.close();
+            }
+          }
+
           async function main() {
-            const packages = JSON.parse(
-              fs.readFileSync("batch.json", "utf8")
-            );
+            const packages = JSON.parse(fs.readFileSync("batch.json", "utf8"));
 
             if (packages.length === 0) {
               console.log("No packages left to test.");
               return;
             }
 
-            const CONCURRENCY = 8;
-            const ARCH_BASE =
-              "https://chibbit-99.github.io/arch.js/";
-
-            let nextIndex = 0;
             const working = [];
             const errors = [];
-
-            function encodePackage(name) {
-              return Buffer
-                .from(name, "utf8")
-                .toString("base64url");
-            }
-
-            function decodePackage(value) {
-              return Buffer
-                .from(value, "base64url")
-                .toString("utf8");
-            }
+            let nextIndex = 0;
 
             const server = http.createServer((req, res) => {
               try {
-                const url = new URL(
-                  req.url,
-                  "http://127.0.0.1:4173"
-                );
-
+                const url = new URL(req.url, "http://127.0.0.1:4173");
                 if (!url.pathname.startsWith("/test/")) {
                   res.writeHead(404);
                   res.end("Not found");
                   return;
                 }
 
-                const encoded =
-                  url.pathname.slice("/test/".length);
-
-                const packageName =
-                  decodePackage(encoded);
-
+                const packageName = decodePackage(url.pathname.slice("/test/".length));
                 const html = `<!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="UTF-8">
-            <base href="${ARCH_BASE}">
-            <script src="${ARCH_BASE}releases/latest.js"></script>
-          </head>
-          <body>
-            <script type="module">
+          <html><head><meta charset="UTF-8"><base href="${ARCH_BASE}"><script src="${ARCH_BASE}releases/latest.js"></script></head>
+          <body><script type="module">
+          window.__ARCH_RESULT__ = { done:false, working:false, packageName:${JSON.stringify(packageName)}, error:null };
+          (async () => {
+            try {
+              await importPackage(${JSON.stringify(packageName)});
+              window.__ARCH_RESULT__ = { done:true, working:true, packageName:${JSON.stringify(packageName)}, error:null };
+            } catch (error) {
               window.__ARCH_RESULT__ = {
-                done: false,
-                working: false,
-                packageName: ${JSON.stringify(packageName)},
-                error: null
+                done:true,
+                working:false,
+                packageName:${JSON.stringify(packageName)},
+                error:String(error?.stack || error?.message || error).slice(0,10000)
               };
+            }
+          })();
+          </script></body></html>`;
 
-              (async () => {
-                try {
-                  await importPackage(
-                    ${JSON.stringify(packageName)}
-                  );
-
-                  window.__ARCH_RESULT__ = {
-                    done: true,
-                    working: true,
-                    packageName: ${JSON.stringify(packageName)},
-                    error: null
-                  };
-                } catch (error) {
-                  window.__ARCH_RESULT__ = {
-                    done: true,
-                    working: false,
-                    packageName: ${JSON.stringify(packageName)},
-                    error: String(
-                      error?.stack ||
-                      error?.message ||
-                      error
-                    ).slice(0, 10000)
-                  };
-                }
-              })();
-            </script>
-          </body>
-          </html>`;
-
-                res.writeHead(200, {
-                  "Content-Type": "text/html"
-                });
-
+                res.writeHead(200, { "Content-Type": "text/html" });
                 res.end(html);
               } catch (error) {
                 res.writeHead(500);
@@ -188,334 +166,137 @@ jobs:
 
             await new Promise((resolve, reject) => {
               server.once("error", reject);
-
-              server.listen(
-                4173,
-                "127.0.0.1",
-                resolve
-              );
+              server.listen(4173, "127.0.0.1", resolve);
             });
 
-            console.log(
-              "Local test server started."
-            );
+            console.log("Local test server started.");
 
-            const browser = await chromium.launch({
-              headless: true
-            });
+            const browser = await chromium.launch({ headless: true });
 
-            /*
-             * Sanity check using the package that
-             * previously passed.
-             */
-
-            const sanityPackage =
-              "02-webpack-numbers-gx";
-
-            console.log("");
-            console.log(
-              "========== SANITY CHECK =========="
-            );
-            console.log(
-              sanityPackage
-            );
-
-            {
-              const context =
-                await browser.newContext();
-
-              const page =
-                await context.newPage();
-
-              try {
-                const encoded =
-                  encodePackage(sanityPackage);
-
-                await page.goto(
-                  `http://127.0.0.1:4173/test/${encoded}`,
-                  {
-                    waitUntil: "domcontentloaded",
-                    timeout: 30000
-                  }
-                );
-
-                await page.waitForFunction(
-                  () =>
-                    window.__ARCH_RESULT__ &&
-                    window.__ARCH_RESULT__.done === true,
-                  {
-                    timeout: 60000
-                  }
-                );
-
-                const result =
-                  await page.evaluate(
-                    () => window.__ARCH_RESULT__
-                  );
-
-                console.log(
-                  `Received package: ${result.packageName}`
-                );
-
-                if (
-                  result.packageName !==
-                  sanityPackage
-                ) {
-                  throw new Error(
-                    `Package name mismatch: expected "${sanityPackage}", got "${result.packageName}"`
-                  );
-                }
-
-                if (!result.working) {
-                  console.error(
-                    "Sanity check failed:"
-                  );
-
-                  console.error(
-                    result.error
-                  );
-
-                  throw new Error(
-                    "Known-good package failed."
-                  );
-                }
-
-                console.log(
-                  "SANITY CHECK PASSED"
-                );
-              } finally {
-                await context.close();
-              }
+            const sanityPackage = "02-webpack-numbers-gx";
+            console.log("\n========== SANITY CHECK ==========");
+            const sanity = await testPackage(browser, sanityPackage, 0, 1);
+            if (sanity.packageName !== sanityPackage || !sanity.working) {
+              console.error("Sanity check failed:", JSON.stringify(sanity, null, 2));
+              throw new Error("Known-good package failed.");
             }
-
-            /*
-             * Concurrent workers.
-             */
+            console.log("SANITY CHECK PASSED");
 
             async function worker(workerId) {
-              const context =
-                await browser.newContext();
+              while (true) {
+                const index = nextIndex++;
+                if (index >= packages.length) return;
 
-              try {
-                while (true) {
-                  const index = nextIndex++;
+                const packageName = packages[index];
+                console.log(`[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`);
 
-                  if (index >= packages.length) {
-                    return;
+                let result = null;
+
+                for (let attempt = 1; attempt <= RETRIES + 1; attempt++) {
+                  try {
+                    result = await testPackage(browser, packageName, workerId, attempt);
+                  } catch (error) {
+                    result = {
+                      done: true,
+                      working: false,
+                      packageName,
+                      error: String(error?.stack || error)
+                    };
                   }
 
-                  const packageName =
-                    packages[index];
+                  if (result.packageName !== packageName) {
+                    result.working = false;
+                    result.error = `Package name mismatch: expected "${packageName}", got "${result.packageName}"`;
+                  }
 
-                  const encoded =
-                    encodePackage(packageName);
+                  if (result.working) break;
 
-                  console.log(
-                    `[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`
-                  );
+                  console.log(`[Worker ${workerId}] FAIL attempt ${attempt}/${RETRIES + 1} ${packageName}`);
+                  console.log(`[Worker ${workerId}] ERROR ${packageName}: ${result.error || "unknown error"}`);
 
-                  let page = null;
-
-                  try {
-                    page =
-                      await context.newPage();
-
-                    await page.goto(
-                      `http://127.0.0.1:4173/test/${encoded}`,
-                      {
-                        waitUntil:
-                          "domcontentloaded",
-                        timeout: 30000
-                      }
-                    );
-
-                    await page.waitForFunction(
-                      () =>
-                        window.__ARCH_RESULT__ &&
-                        window.__ARCH_RESULT__.done === true,
-                      {
-                        timeout: 60000
-                      }
-                    );
-
-                    const result =
-                      await page.evaluate(
-                        () => window.__ARCH_RESULT__
-                      );
-
-                    if (
-                      result.packageName !==
-                      packageName
-                    ) {
-                      throw new Error(
-                        `Package name mismatch: expected "${packageName}", got "${result.packageName}"`
-                      );
-                    }
-
-                    if (result.working) {
-                      working.push(packageName);
-
-                      console.log(
-                        `[Worker ${workerId}] WORKS ${packageName}`
-                      );
-                    } else {
-                      console.log(
-                        `[Worker ${workerId}] FAIL ${packageName}`
-                      );
-
-                      if (
-                        result.error &&
-                        errors.length < 10
-                      ) {
-                        errors.push({
-                          package: packageName,
-                          error: result.error
-                        });
-                      }
-                    }
-                  } catch (error) {
-                    console.log(
-                      `[Worker ${workerId}] ERROR ${packageName}`
-                    );
-
-                    if (errors.length < 10) {
-                      errors.push({
-                        package: packageName,
-                        error: String(error)
-                      });
-                    }
-                  } finally {
-                    if (page) {
-                      await page.close();
-                    }
+                  if (result.consoleErrors?.length) {
+                    console.log(`[Worker ${workerId}] CONSOLE ERRORS ${packageName}: ${JSON.stringify(result.consoleErrors)}`);
+                  }
+                  if (result.pageErrors?.length) {
+                    console.log(`[Worker ${workerId}] PAGE ERRORS ${packageName}: ${JSON.stringify(result.pageErrors)}`);
                   }
                 }
-              } finally {
-                await context.close();
+
+                if (result.working) {
+                  working.push(packageName);
+                  console.log(`[Worker ${workerId}] WORKS ${packageName}`);
+                } else {
+                  console.log(`[Worker ${workerId}] FINAL FAIL ${packageName}`);
+                  errors.push({ package: packageName, error: result.error || "unknown error" });
+                }
               }
             }
 
             await Promise.all(
-              Array.from(
-                {
-                  length: Math.min(
-                    CONCURRENCY,
-                    packages.length
-                  )
-                },
-                (_, index) =>
-                  worker(index + 1)
-              )
+              Array.from({ length: Math.min(CONCURRENCY, packages.length) }, (_, index) => worker(index + 1))
             );
 
             await browser.close();
             server.close();
 
             let previousOffset = 0;
-
             if (fs.existsSync("progress.json")) {
-              const progress = JSON.parse(
-                fs.readFileSync(
-                  "progress.json",
-                  "utf8"
-                )
-              );
-
-              previousOffset =
-                Number(progress.offset) || 0;
+              const progress = JSON.parse(fs.readFileSync("progress.json", "utf8"));
+              previousOffset = Number(progress.offset) || 0;
             }
 
-            const newOffset =
-              previousOffset + packages.length;
-
-            const result = {
-              packagetestedindex: newOffset,
-              working,
-              working_count: working.length
-            };
+            const newOffset = previousOffset + packages.length;
 
             fs.writeFileSync(
               "results.json",
-              JSON.stringify(
-                result,
-                null,
-                2
-              ) + "\n"
+              JSON.stringify({
+                packagetestedindex: newOffset,
+                working,
+                working_count: working.length,
+                failed: errors.map(error => error.package),
+                failed_count: errors.length,
+                errors
+              }, null, 2) + "\n"
             );
 
             fs.writeFileSync(
               "progress.json",
-              JSON.stringify(
-                {
-                  offset: newOffset
-                },
-                null,
-                2
-              ) + "\n"
+              JSON.stringify({ offset: newOffset }, null, 2) + "\n"
             );
 
-            console.log("");
-            console.log(
-              "================================"
-            );
-            console.log(
-              "ARCH.js COMPATIBILITY RESULTS"
-            );
-            console.log(
-              "================================"
-            );
-            console.log(
-              `Tested:  ${packages.length}`
-            );
-            console.log(
-              `Working: ${working.length}`
-            );
-            console.log(
-              `Index:   ${newOffset}`
-            );
-            console.log(
-              "================================"
-            );
+            console.log("\n================================");
+            console.log("ARCH.js COMPATIBILITY RESULTS");
+            console.log("================================");
+            console.log(`Tested:  ${packages.length}`);
+            console.log(`Working: ${working.length}`);
+            console.log(`Failed:  ${errors.length}`);
+            console.log(`Index:   ${newOffset}`);
+            console.log("================================");
 
-            if (errors.length > 0) {
-              console.log("");
-              console.log(
-                "Failure samples:"
-              );
-
-              for (const error of errors) {
-                console.log("");
-                console.log(
-                  `Package: ${error.package}`
-                );
-                console.log(
-                  error.error
-                );
+            if (errors.length) {
+              console.log("\nFailure samples:");
+              for (const error of errors.slice(0, 50)) {
+                console.log(`\nPackage: ${error.package}`);
+                console.log(error.error);
               }
             }
           }
 
           main().catch(error => {
-            console.error("");
-            console.error(
-              "FATAL TEST ERROR"
-            );
+            console.error("\nFATAL TEST ERROR");
             console.error(error);
             process.exit(1);
           });
           NODE
 
       - name: Run compatibility tester
-        run: |
-          node tester.cjs
+        run: node tester.cjs
 
       - name: Commit results
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           git add results.json progress.json
-
           if git diff --cached --quiet; then
             echo "Nothing to commit."
           else
