@@ -62,6 +62,8 @@ jobs:
 
           const ARCH_BASE = "https://chibbit-99.github.io/arch.js/";
           const CONCURRENCY = 2;
+          const PACKAGES_PER_BROWSER = 50;
+          const SANITY_PACKAGE = "02-webpack-numbers-gx";
 
           function encodePackage(name) {
             return Buffer.from(name, "utf8").toString("base64url");
@@ -69,6 +71,23 @@ jobs:
 
           function decodePackage(value) {
             return Buffer.from(value, "base64url").toString("utf8");
+          }
+
+          function classifyFailure(result) {
+            const error = String(result.error || "");
+            const allText = [
+              error,
+              ...(result.consoleErrors || []),
+              ...(result.pageErrors || []),
+              ...(result.failedRequests || [])
+            ].join("\n");
+
+            if (/Cannot resolve package entry/i.test(error)) return "unresolvable";
+            if (/Node builtin|Node-only code|Could not resolve|Module not found/i.test(error)) return "incompatible";
+            if (result.failedRequests?.length) return "network";
+            if (/\b(408|429|500|502|503|504)\b|Failed to fetch|NetworkError|net::/i.test(allText)) return "network";
+            if (/\b404\b/i.test(allText)) return "resource_error";
+            return "incompatible";
           }
 
           async function testPackage(browser, packageName) {
@@ -100,7 +119,6 @@ jobs:
 
             try {
               const encoded = encodePackage(packageName);
-
               await page.goto(
                 `http://127.0.0.1:4173/test/${encoded}`,
                 { waitUntil: "domcontentloaded", timeout: 30000 }
@@ -126,6 +144,32 @@ jobs:
             }
           }
 
+          async function launchAndSanityCheck() {
+            const browser = await chromium.launch({ headless: true });
+            const sanity = await testPackage(browser, SANITY_PACKAGE);
+
+            if (sanity.packageName === SANITY_PACKAGE && sanity.working) {
+              console.log("SANITY CHECK PASSED");
+              return browser;
+            }
+
+            console.error("SANITY CHECK FAILED:", JSON.stringify(sanity, null, 2));
+            await browser.close();
+
+            console.log("Starting a completely fresh browser for sanity retry...");
+            const retryBrowser = await chromium.launch({ headless: true });
+            const retry = await testPackage(retryBrowser, SANITY_PACKAGE);
+
+            if (retry.packageName === SANITY_PACKAGE && retry.working) {
+              console.log("SANITY RETRY PASSED");
+              return retryBrowser;
+            }
+
+            console.error("SANITY RETRY FAILED:", JSON.stringify(retry, null, 2));
+            await retryBrowser.close();
+            throw new Error("ARCH.js test environment failed the known-good package twice in fresh browsers.");
+          }
+
           async function main() {
             const packages = JSON.parse(fs.readFileSync("batch.json", "utf8"));
 
@@ -135,7 +179,7 @@ jobs:
             }
 
             const working = [];
-            const errors = [];
+            const failures = [];
             let nextIndex = 0;
 
             const server = http.createServer((req, res) => {
@@ -182,97 +226,90 @@ jobs:
 
             console.log("Local test server started.");
 
-            const browser = await chromium.launch({ headless: true });
-
-            const sanityPackage = "02-webpack-numbers-gx";
-            console.log("\n========== SANITY CHECK ==========");
-            const sanity = await testPackage(browser, sanityPackage);
-            if (sanity.packageName !== sanityPackage || !sanity.working) {
-              console.error("Sanity check failed:", JSON.stringify(sanity, null, 2));
-              throw new Error("Known-good package failed.");
-            }
-            console.log("SANITY CHECK PASSED");
-
-            let testedSinceSanity = 0;
-
-            async function runSanityCheck() {
-              console.log("\n========== PERIODIC SANITY CHECK ==========");
-              const sanity = await testPackage(browser, sanityPackage);
-              if (sanity.packageName !== sanityPackage || !sanity.working) {
-                console.error("Periodic sanity check failed:", JSON.stringify(sanity, null, 2));
-                throw new Error("Known-good package stopped working during the run. Aborting to prevent invalid results.");
-              }
-              console.log("PERIODIC SANITY CHECK PASSED");
-            }
-
             async function worker(workerId) {
-              while (true) {
-                const index = nextIndex++;
-                if (index >= packages.length) return;
+              let browser = await launchAndSanityCheck();
+              let packagesOnBrowser = 0;
 
-                const packageName = packages[index];
-                console.log(`[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`);
+              try {
+                while (true) {
+                  const index = nextIndex++;
+                  if (index >= packages.length) return;
 
-                let result;
-                try {
-                  result = await testPackage(browser, packageName);
-                } catch (error) {
-                  result = {
-                    done: true,
-                    working: false,
-                    packageName,
-                    error: String(error?.stack || error),
-                    consoleErrors: [],
-                    pageErrors: [],
-                    failedRequests: []
-                  };
-                }
-
-                if (result.packageName !== packageName) {
-                  result.working = false;
-                  result.error = `Package name mismatch: expected "${packageName}", got "${result.packageName}"`;
-                }
-
-                if (result.working) {
-                  working.push(packageName);
-                  console.log(`[Worker ${workerId}] WORKS ${packageName}`);
-                } else {
-                  console.log(`[Worker ${workerId}] FAIL ${packageName}`);
-                  console.log(`[Worker ${workerId}] ERROR ${packageName}: ${result.error || "unknown error"}`);
-
-                  if (result.consoleErrors?.length) {
-                    console.log(`[Worker ${workerId}] HTTP/CONSOLE ${packageName}: ${JSON.stringify(result.consoleErrors)}`);
-                  }
-                  if (result.pageErrors?.length) {
-                    console.log(`[Worker ${workerId}] PAGE ERRORS ${packageName}: ${JSON.stringify(result.pageErrors)}`);
-                  }
-                  if (result.failedRequests?.length) {
-                    console.log(`[Worker ${workerId}] FAILED REQUESTS ${packageName}: ${JSON.stringify(result.failedRequests)}`);
+                  if (packagesOnBrowser >= PACKAGES_PER_BROWSER) {
+                    console.log(`[Worker ${workerId}] Restarting Chromium after ${packagesOnBrowser} packages`);
+                    await browser.close();
+                    browser = await launchAndSanityCheck();
+                    packagesOnBrowser = 0;
                   }
 
-                  errors.push({
-                    package: packageName,
-                    error: result.error || "unknown error",
-                    consoleErrors: result.consoleErrors || [],
-                    pageErrors: result.pageErrors || [],
-                    failedRequests: result.failedRequests || []
-                  });
-                }
+                  const packageName = packages[index];
+                  console.log(`[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`);
 
-                testedSinceSanity++;
-                if (testedSinceSanity >= 25) {
-                  testedSinceSanity = 0;
-                  await runSanityCheck();
+                  let result;
+                  try {
+                    result = await testPackage(browser, packageName);
+                  } catch (error) {
+                    result = {
+                      done: true,
+                      working: false,
+                      packageName,
+                      error: String(error?.stack || error),
+                      consoleErrors: [],
+                      pageErrors: [],
+                      failedRequests: []
+                    };
+                  }
+
+                  packagesOnBrowser++;
+
+                  if (result.packageName !== packageName) {
+                    result.working = false;
+                    result.error = `Package name mismatch: expected "${packageName}", got "${result.packageName}"`;
+                  }
+
+                  if (result.working) {
+                    working.push(packageName);
+                    console.log(`[Worker ${workerId}] WORKS ${packageName}`);
+                  } else {
+                    const failureType = classifyFailure(result);
+                    console.log(`[Worker ${workerId}] FAIL ${packageName} [${failureType}]`);
+                    console.log(`[Worker ${workerId}] ERROR ${packageName}: ${result.error || "unknown error"}`);
+
+                    if (result.consoleErrors?.length) {
+                      console.log(`[Worker ${workerId}] HTTP/CONSOLE ${packageName}: ${JSON.stringify(result.consoleErrors)}`);
+                    }
+                    if (result.pageErrors?.length) {
+                      console.log(`[Worker ${workerId}] PAGE ERRORS ${packageName}: ${JSON.stringify(result.pageErrors)}`);
+                    }
+                    if (result.failedRequests?.length) {
+                      console.log(`[Worker ${workerId}] FAILED REQUESTS ${packageName}: ${JSON.stringify(result.failedRequests)}`);
+                    }
+
+                    failures.push({
+                      package: packageName,
+                      type: failureType,
+                      error: result.error || "unknown error",
+                      consoleErrors: result.consoleErrors || [],
+                      pageErrors: result.pageErrors || [],
+                      failedRequests: result.failedRequests || []
+                    });
+                  }
                 }
+              } finally {
+                await browser.close();
               }
             }
 
-            await Promise.all(
-              Array.from({ length: Math.min(CONCURRENCY, packages.length) }, (_, index) => worker(index + 1))
-            );
-
-            await browser.close();
-            server.close();
+            try {
+              await Promise.all(
+                Array.from(
+                  { length: Math.min(CONCURRENCY, packages.length) },
+                  (_, index) => worker(index + 1)
+                )
+              );
+            } finally {
+              server.close();
+            }
 
             let previousOffset = 0;
             if (fs.existsSync("progress.json")) {
@@ -281,6 +318,12 @@ jobs:
             }
 
             const newOffset = previousOffset + packages.length;
+            const counts = {
+              incompatible: failures.filter(x => x.type === "incompatible").length,
+              unresolvable: failures.filter(x => x.type === "unresolvable").length,
+              network: failures.filter(x => x.type === "network").length,
+              resource_error: failures.filter(x => x.type === "resource_error").length
+            };
 
             fs.writeFileSync(
               "results.json",
@@ -288,9 +331,10 @@ jobs:
                 packagetestedindex: newOffset,
                 working,
                 working_count: working.length,
-                failed: errors.map(error => error.package),
-                failed_count: errors.length,
-                errors
+                failed: failures.map(x => x.package),
+                failed_count: failures.length,
+                failure_counts: counts,
+                errors: failures
               }, null, 2) + "\n"
             );
 
@@ -302,19 +346,24 @@ jobs:
             console.log("\n================================");
             console.log("ARCH.js COMPATIBILITY RESULTS");
             console.log("================================");
-            console.log(`Tested:  ${packages.length}`);
-            console.log(`Working: ${working.length}`);
-            console.log(`Failed:  ${errors.length}`);
-            console.log(`Index:   ${newOffset}`);
+            console.log(`Tested:        ${packages.length}`);
+            console.log(`Working:       ${working.length}`);
+            console.log(`Failed:        ${failures.length}`);
+            console.log(`Incompatible:  ${counts.incompatible}`);
+            console.log(`Unresolvable:  ${counts.unresolvable}`);
+            console.log(`Network:       ${counts.network}`);
+            console.log(`Resource:      ${counts.resource_error}`);
+            console.log(`Index:         ${newOffset}`);
             console.log("================================");
 
-            if (errors.length) {
+            if (failures.length) {
               console.log("\nFailure samples:");
-              for (const error of errors.slice(0, 50)) {
-                console.log(`\nPackage: ${error.package}`);
-                console.log(error.error);
-                if (error.consoleErrors?.length) console.log(`HTTP/CONSOLE: ${JSON.stringify(error.consoleErrors)}`);
-                if (error.failedRequests?.length) console.log(`FAILED REQUESTS: ${JSON.stringify(error.failedRequests)}`);
+              for (const failure of failures.slice(0, 50)) {
+                console.log(`\nPackage: ${failure.package}`);
+                console.log(`Type: ${failure.type}`);
+                console.log(failure.error);
+                if (failure.consoleErrors?.length) console.log(`HTTP/CONSOLE: ${JSON.stringify(failure.consoleErrors)}`);
+                if (failure.failedRequests?.length) console.log(`FAILED REQUESTS: ${JSON.stringify(failure.failedRequests)}`);
               }
             }
           }
