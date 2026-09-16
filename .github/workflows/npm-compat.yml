@@ -93,7 +93,7 @@ jobs:
           );
           EOF
 
-      - name: Test ARCH.js
+      - name: Test ARCH.js compatibility
         run: |
           node <<'EOF'
           (async () => {
@@ -110,7 +110,7 @@ jobs:
 
             if (packages.length === 0) {
               console.log(
-                "No packages left."
+                "No packages left to test."
               );
               return;
             }
@@ -119,102 +119,105 @@ jobs:
 
             let nextIndex = 0;
             const working = [];
+            const errorSamples = [];
+
+            const MAX_ERROR_SAMPLES = 20;
+
+            /*
+             * Local server only exists to give every browser page
+             * a normal HTTP origin.
+             *
+             * The <base> element below makes ARCH.js resolve
+             * config.json and other relative resources from the
+             * real ARCH.js GitHub Pages origin.
+             */
 
             const server =
               http.createServer(
                 (req, res) => {
-                  try {
-                    const url = new URL(
-                      req.url,
-                      "http://127.0.0.1:4173"
+
+                  const url = new URL(
+                    req.url,
+                    "http://127.0.0.1:4173"
+                  );
+
+                  const packageName =
+                    url.searchParams.get(
+                      "package"
                     );
 
-                    const packageName =
-                      url.searchParams.get(
-                        "package"
-                      );
-
-                    if (!packageName) {
-                      res.writeHead(400);
-                      res.end(
-                        "Missing package"
-                      );
-                      return;
-                    }
-
-                    const html = `<!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="UTF-8">
-
-            <script
-              src="https://chibbit-99.github.io/arch.js/releases/latest.js"
-            ></script>
-          </head>
-
-          <body>
-
-          <script type="module">
-
-            window.__ARCH_RESULT__ = {
-              done: false,
-              working: false,
-              error: null
-            };
-
-            (async () => {
-
-              try {
-
-                await importPackage(
-                  ${JSON.stringify(packageName)}
-                );
-
-                window.__ARCH_RESULT__ = {
-                  done: true,
-                  working: true,
-                  error: null
-                };
-
-              } catch (error) {
-
-                window.__ARCH_RESULT__ = {
-                  done: true,
-                  working: false,
-                  error: String(
-                    error?.stack ||
-                    error?.message ||
-                    error
-                  ).slice(0, 10000)
-                };
-
-              }
-
-            })();
-
-          </script>
-
-          </body>
-          </html>`;
-
-                    res.writeHead(
-                      200,
-                      {
-                        "Content-Type":
-                          "text/html"
-                      }
-                    );
-
-                    res.end(html);
-
-                  } catch (error) {
-
-                    res.writeHead(500);
-
+                  if (!packageName) {
+                    res.writeHead(400);
                     res.end(
-                      String(error)
+                      "Missing package"
                     );
+                    return;
                   }
+
+                  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+
+  <base href="https://chibbit-99.github.io/arch.js/">
+
+  <script src="https://chibbit-99.github.io/arch.js/releases/latest.js"></script>
+</head>
+
+<body>
+
+<script type="module">
+
+  window.__ARCH_RESULT__ = {
+    done: false,
+    working: false,
+    error: null
+  };
+
+  (async () => {
+
+    try {
+
+      await importPackage(
+        ${JSON.stringify(packageName)}
+      );
+
+      window.__ARCH_RESULT__ = {
+        done: true,
+        working: true,
+        error: null
+      };
+
+    } catch (error) {
+
+      window.__ARCH_RESULT__ = {
+        done: true,
+        working: false,
+        error: String(
+          error?.stack ||
+          error?.message ||
+          error
+        ).slice(0, 10000)
+      };
+
+    }
+
+  })();
+
+</script>
+
+</body>
+</html>`;
+
+                  res.writeHead(
+                    200,
+                    {
+                      "Content-Type":
+                        "text/html"
+                    }
+                  );
+
+                  res.end(html);
                 }
               );
 
@@ -245,20 +248,25 @@ jobs:
 
             /*
              * --------------------------------------------------
-             * Known-good sanity check
+             * SANITY CHECK
              * --------------------------------------------------
              *
-             * This package worked in the earlier single-worker
-             * version. If it fails here, the problem is the
-             * browser/test harness, not the package batch.
+             * This was confirmed working in the previous
+             * single-worker run.
              */
 
             console.log("");
             console.log(
-              "=== SANITY CHECK ==="
+              "================================"
             );
             console.log(
-              "Testing 02-webpack-numbers-gx"
+              "SANITY CHECK"
+            );
+            console.log(
+              "02-webpack-numbers-gx"
+            );
+            console.log(
+              "================================"
             );
 
             {
@@ -294,56 +302,49 @@ jobs:
                       window.__ARCH_RESULT__
                   );
 
-                console.log(
-                  `Sanity status: ${
-                    sanity.working
-                      ? "PASS"
-                      : "FAIL"
-                  }`
-                );
-
                 if (!sanity.working) {
+
                   console.log(
-                    "Sanity error:"
+                    "SANITY CHECK FAILED"
+                  );
+
+                  console.log(
+                    "Error:"
                   );
 
                   console.log(
                     sanity.error
                   );
 
-                  await browser.close();
-                  server.close();
-
                   throw new Error(
-                    "Known-good package failed. Stopping before running the batch."
+                    "Known-good package failed."
                   );
                 }
 
+                console.log(
+                  "SANITY CHECK PASSED"
+                );
+
               } finally {
+
                 await context.close();
               }
             }
 
-            console.log(
-              "=== SANITY CHECK PASSED ==="
-            );
-            console.log("");
-
             /*
              * --------------------------------------------------
-             * Concurrent workers
+             * CONCURRENT WORKERS
              * --------------------------------------------------
              */
 
-            const errorSamples = [];
-            const MAX_ERROR_SAMPLES = 20;
-
-            async function worker(workerId) {
+            async function worker(
+              workerId
+            ) {
 
               /*
-               * Every worker has its own browser context.
-               * This isolates cookies, storage, service workers,
-               * caches and other browser state.
+               * Give each worker its own isolated browser
+               * context so ARCH.js storage/cache/service-worker
+               * state cannot collide between workers.
                */
 
               const context =
@@ -366,11 +367,11 @@ jobs:
                   const packageName =
                     packages[index];
 
+                  let page = null;
+
                   console.log(
                     `[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`
                   );
-
-                  let page = null;
 
                   try {
 
@@ -479,17 +480,18 @@ jobs:
                     )
                 },
                 (_, index) =>
-                  worker(index + 1)
+                  worker(
+                    index + 1
+                  )
               )
             );
 
             await browser.close();
-
             server.close();
 
             /*
              * --------------------------------------------------
-             * Save results
+             * SAVE RESULTS
              * --------------------------------------------------
              */
 
@@ -544,7 +546,7 @@ jobs:
 
             /*
              * --------------------------------------------------
-             * Summary
+             * SUMMARY
              * --------------------------------------------------
              */
 
@@ -552,11 +554,9 @@ jobs:
             console.log(
               "================================"
             );
-
             console.log(
               "ARCH.js COMPATIBILITY RESULTS"
             );
-
             console.log(
               "================================"
             );
@@ -578,8 +578,10 @@ jobs:
             );
 
             /*
-             * Only print samples to the Actions log.
-             * They are NOT written to results.json.
+             * Print a small number of real errors to the
+             * Actions log for debugging.
+             *
+             * These are NOT stored in results.json.
              */
 
             if (
@@ -588,7 +590,7 @@ jobs:
 
               console.log("");
               console.log(
-                "First failure samples:"
+                "Failure samples:"
               );
 
               for (
@@ -613,6 +615,7 @@ jobs:
             console.error(
               "FATAL TEST ERROR"
             );
+
             console.error(
               error
             );
