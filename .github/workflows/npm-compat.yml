@@ -61,8 +61,7 @@ jobs:
           const { chromium } = require("playwright");
 
           const ARCH_BASE = "https://chibbit-99.github.io/arch.js/";
-          const CONCURRENCY = 8;
-          const RETRIES = 1;
+          const CONCURRENCY = 2;
 
           function encodePackage(name) {
             return Buffer.from(name, "utf8").toString("base64url");
@@ -72,11 +71,12 @@ jobs:
             return Buffer.from(value, "base64url").toString("utf8");
           }
 
-          async function testPackage(browser, packageName, workerId, attempt) {
+          async function testPackage(browser, packageName) {
             const context = await browser.newContext();
             const page = await context.newPage();
             const consoleErrors = [];
             const pageErrors = [];
+            const failedRequests = [];
 
             page.on("pageerror", error => {
               pageErrors.push(String(error?.stack || error));
@@ -86,6 +86,16 @@ jobs:
               if (message.type() === "error") {
                 consoleErrors.push(message.text());
               }
+            });
+
+            page.on("response", response => {
+              if (response.status() >= 400) {
+                consoleErrors.push(`${response.status()} ${response.url()}`);
+              }
+            });
+
+            page.on("requestfailed", request => {
+              failedRequests.push(`${request.url()}: ${request.failure()?.errorText || "unknown error"}`);
             });
 
             try {
@@ -102,12 +112,13 @@ jobs:
               );
 
               return await page.evaluate(
-                ({ consoleErrors, pageErrors }) => ({
+                ({ consoleErrors, pageErrors, failedRequests }) => ({
                   ...window.__ARCH_RESULT__,
                   consoleErrors,
-                  pageErrors
+                  pageErrors,
+                  failedRequests
                 }),
-                { consoleErrors, pageErrors }
+                { consoleErrors, pageErrors, failedRequests }
               );
             } finally {
               await page.close();
@@ -175,12 +186,24 @@ jobs:
 
             const sanityPackage = "02-webpack-numbers-gx";
             console.log("\n========== SANITY CHECK ==========");
-            const sanity = await testPackage(browser, sanityPackage, 0, 1);
+            const sanity = await testPackage(browser, sanityPackage);
             if (sanity.packageName !== sanityPackage || !sanity.working) {
               console.error("Sanity check failed:", JSON.stringify(sanity, null, 2));
               throw new Error("Known-good package failed.");
             }
             console.log("SANITY CHECK PASSED");
+
+            let testedSinceSanity = 0;
+
+            async function runSanityCheck() {
+              console.log("\n========== PERIODIC SANITY CHECK ==========");
+              const sanity = await testPackage(browser, sanityPackage);
+              if (sanity.packageName !== sanityPackage || !sanity.working) {
+                console.error("Periodic sanity check failed:", JSON.stringify(sanity, null, 2));
+                throw new Error("Known-good package stopped working during the run. Aborting to prevent invalid results.");
+              }
+              console.log("PERIODIC SANITY CHECK PASSED");
+            }
 
             async function worker(workerId) {
               while (true) {
@@ -190,44 +213,56 @@ jobs:
                 const packageName = packages[index];
                 console.log(`[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`);
 
-                let result = null;
+                let result;
+                try {
+                  result = await testPackage(browser, packageName);
+                } catch (error) {
+                  result = {
+                    done: true,
+                    working: false,
+                    packageName,
+                    error: String(error?.stack || error),
+                    consoleErrors: [],
+                    pageErrors: [],
+                    failedRequests: []
+                  };
+                }
 
-                for (let attempt = 1; attempt <= RETRIES + 1; attempt++) {
-                  try {
-                    result = await testPackage(browser, packageName, workerId, attempt);
-                  } catch (error) {
-                    result = {
-                      done: true,
-                      working: false,
-                      packageName,
-                      error: String(error?.stack || error)
-                    };
-                  }
-
-                  if (result.packageName !== packageName) {
-                    result.working = false;
-                    result.error = `Package name mismatch: expected "${packageName}", got "${result.packageName}"`;
-                  }
-
-                  if (result.working) break;
-
-                  console.log(`[Worker ${workerId}] FAIL attempt ${attempt}/${RETRIES + 1} ${packageName}`);
-                  console.log(`[Worker ${workerId}] ERROR ${packageName}: ${result.error || "unknown error"}`);
-
-                  if (result.consoleErrors?.length) {
-                    console.log(`[Worker ${workerId}] CONSOLE ERRORS ${packageName}: ${JSON.stringify(result.consoleErrors)}`);
-                  }
-                  if (result.pageErrors?.length) {
-                    console.log(`[Worker ${workerId}] PAGE ERRORS ${packageName}: ${JSON.stringify(result.pageErrors)}`);
-                  }
+                if (result.packageName !== packageName) {
+                  result.working = false;
+                  result.error = `Package name mismatch: expected "${packageName}", got "${result.packageName}"`;
                 }
 
                 if (result.working) {
                   working.push(packageName);
                   console.log(`[Worker ${workerId}] WORKS ${packageName}`);
                 } else {
-                  console.log(`[Worker ${workerId}] FINAL FAIL ${packageName}`);
-                  errors.push({ package: packageName, error: result.error || "unknown error" });
+                  console.log(`[Worker ${workerId}] FAIL ${packageName}`);
+                  console.log(`[Worker ${workerId}] ERROR ${packageName}: ${result.error || "unknown error"}`);
+
+                  if (result.consoleErrors?.length) {
+                    console.log(`[Worker ${workerId}] HTTP/CONSOLE ${packageName}: ${JSON.stringify(result.consoleErrors)}`);
+                  }
+                  if (result.pageErrors?.length) {
+                    console.log(`[Worker ${workerId}] PAGE ERRORS ${packageName}: ${JSON.stringify(result.pageErrors)}`);
+                  }
+                  if (result.failedRequests?.length) {
+                    console.log(`[Worker ${workerId}] FAILED REQUESTS ${packageName}: ${JSON.stringify(result.failedRequests)}`);
+                  }
+
+                  errors.push({
+                    package: packageName,
+                    error: result.error || "unknown error",
+                    consoleErrors: result.consoleErrors || [],
+                    pageErrors: result.pageErrors || [],
+                    failedRequests: result.failedRequests || []
+                  });
+                }
+
+                testedSinceSanity++;
+                if (testedSinceSanity >= 25) {
+                  testedSinceSanity = 0;
+                  await runSanityCheck();
                 }
               }
             }
@@ -278,6 +313,8 @@ jobs:
               for (const error of errors.slice(0, 50)) {
                 console.log(`\nPackage: ${error.package}`);
                 console.log(error.error);
+                if (error.consoleErrors?.length) console.log(`HTTP/CONSOLE: ${JSON.stringify(error.consoleErrors)}`);
+                if (error.failedRequests?.length) console.log(`FAILED REQUESTS: ${JSON.stringify(error.failedRequests)}`);
               }
             }
           }
