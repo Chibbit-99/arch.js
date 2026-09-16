@@ -1,6 +1,6 @@
 name: ARCH.js npm Compatibility Lab
 
-on:
+"on":
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
@@ -29,9 +29,8 @@ jobs:
 
       - name: Get npm package list
         run: |
-          node <<'EOF'
+          node - <<'NODE'
           const fs = require("fs");
-
           const packages = require("all-the-package-names");
 
           fs.writeFileSync(
@@ -40,11 +39,11 @@ jobs:
           );
 
           console.log(`Found ${packages.length} npm packages`);
-          EOF
+          NODE
 
       - name: Select next 5000 packages
         run: |
-          node <<'EOF'
+          node - <<'NODE'
           const fs = require("fs");
 
           const packages = JSON.parse(
@@ -58,7 +57,7 @@ jobs:
               fs.readFileSync("progress.json", "utf8")
             );
 
-            offset = progress.offset || 0;
+            offset = Number(progress.offset) || 0;
           }
 
           const batch = packages.slice(offset, offset + 5000);
@@ -68,21 +67,21 @@ jobs:
             JSON.stringify(batch)
           );
 
-          console.log(`Starting at package index ${offset}`);
+          console.log(`Starting at package index: ${offset}`);
           console.log(`Batch size: ${batch.length}`);
           console.log(
             `Range: ${offset + 1}-${offset + batch.length}`
           );
-          EOF
+          NODE
 
-      - name: Test ARCH.js compatibility
+      - name: Create compatibility tester
         run: |
-          node <<'EOF'
-          (async () => {
-            const fs = require("fs");
-            const http = require("http");
-            const { chromium } = require("playwright");
+          cat > tester.cjs <<'NODE'
+          const fs = require("fs");
+          const http = require("http");
+          const { chromium } = require("playwright");
 
+          async function main() {
             const packages = JSON.parse(
               fs.readFileSync("batch.json", "utf8")
             );
@@ -93,95 +92,88 @@ jobs:
             }
 
             const CONCURRENCY = 8;
+            const ARCH_BASE =
+              "https://chibbit-99.github.io/arch.js/";
 
             let nextIndex = 0;
             const working = [];
-            const errorSamples = [];
-            const MAX_ERROR_SAMPLES = 10;
+            const errors = [];
 
             function encodePackage(name) {
               return Buffer
                 .from(name, "utf8")
-                .toString("base64")
-                .replace(/\+/g, "-")
-                .replace(/\//g, "_")
-                .replace(/=+$/g, "");
+                .toString("base64url");
             }
 
             function decodePackage(value) {
-              let base64 = value
-                .replace(/-/g, "+")
-                .replace(/_/g, "/");
-
-              while (base64.length % 4 !== 0) {
-                base64 += "=";
-              }
-
               return Buffer
-                .from(base64, "base64")
+                .from(value, "base64url")
                 .toString("utf8");
             }
 
             const server = http.createServer((req, res) => {
               try {
-                const pathname = new URL(
+                const url = new URL(
                   req.url,
                   "http://127.0.0.1:4173"
-                ).pathname;
+                );
 
-                if (!pathname.startsWith("/test/")) {
+                if (!url.pathname.startsWith("/test/")) {
                   res.writeHead(404);
                   res.end("Not found");
                   return;
                 }
 
-                const encoded = pathname.slice("/test/".length);
-                const packageName = decodePackage(encoded);
+                const encoded =
+                  url.pathname.slice("/test/".length);
+
+                const packageName =
+                  decodePackage(encoded);
 
                 const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <base href="https://chibbit-99.github.io/arch.js/">
-  <script src="https://chibbit-99.github.io/arch.js/releases/latest.js"></script>
-</head>
-<body>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <base href="${ARCH_BASE}">
+            <script src="${ARCH_BASE}releases/latest.js"></script>
+          </head>
+          <body>
+            <script type="module">
+              window.__ARCH_RESULT__ = {
+                done: false,
+                working: false,
+                packageName: ${JSON.stringify(packageName)},
+                error: null
+              };
 
-<script type="module">
-window.__ARCH_RESULT__ = {
-  done: false,
-  working: false,
-  packageName: ${JSON.stringify(packageName)},
-  error: null
-};
+              (async () => {
+                try {
+                  await importPackage(
+                    ${JSON.stringify(packageName)}
+                  );
 
-(async () => {
-  try {
-    await importPackage(${JSON.stringify(packageName)});
-
-    window.__ARCH_RESULT__ = {
-      done: true,
-      working: true,
-      packageName: ${JSON.stringify(packageName)},
-      error: null
-    };
-  } catch (error) {
-    window.__ARCH_RESULT__ = {
-      done: true,
-      working: false,
-      packageName: ${JSON.stringify(packageName)},
-      error: String(
-        error?.stack ||
-        error?.message ||
-        error
-      ).slice(0, 10000)
-    };
-  }
-})();
-</script>
-
-</body>
-</html>`;
+                  window.__ARCH_RESULT__ = {
+                    done: true,
+                    working: true,
+                    packageName: ${JSON.stringify(packageName)},
+                    error: null
+                  };
+                } catch (error) {
+                  window.__ARCH_RESULT__ = {
+                    done: true,
+                    working: false,
+                    packageName: ${JSON.stringify(packageName)},
+                    error: String(
+                      error?.stack ||
+                      error?.message ||
+                      error
+                    ).slice(0, 10000)
+                  };
+                }
+              })();
+            </script>
+          </body>
+          </html>`;
 
                 res.writeHead(200, {
                   "Content-Type": "text/html"
@@ -204,30 +196,40 @@ window.__ARCH_RESULT__ = {
               );
             });
 
-            console.log("Local test server started.");
+            console.log(
+              "Local test server started."
+            );
 
             const browser = await chromium.launch({
               headless: true
             });
 
             /*
-             * Known-good sanity check.
+             * Sanity check using the package that
+             * previously passed.
              */
 
-            const sanityPackage = "02-webpack-numbers-gx";
+            const sanityPackage =
+              "02-webpack-numbers-gx";
 
             console.log("");
-            console.log("================================");
-            console.log("SANITY CHECK");
-            console.log(sanityPackage);
-            console.log("================================");
+            console.log(
+              "========== SANITY CHECK =========="
+            );
+            console.log(
+              sanityPackage
+            );
 
             {
-              const context = await browser.newContext();
-              const page = await context.newPage();
+              const context =
+                await browser.newContext();
+
+              const page =
+                await context.newPage();
 
               try {
-                const encoded = encodePackage(sanityPackage);
+                const encoded =
+                  encodePackage(sanityPackage);
 
                 await page.goto(
                   `http://127.0.0.1:4173/test/${encoded}`,
@@ -246,32 +248,41 @@ window.__ARCH_RESULT__ = {
                   }
                 );
 
-                const result = await page.evaluate(
-                  () => window.__ARCH_RESULT__
-                );
+                const result =
+                  await page.evaluate(
+                    () => window.__ARCH_RESULT__
+                  );
 
                 console.log(
-                  `Browser received: ${result.packageName}`
+                  `Received package: ${result.packageName}`
                 );
 
                 if (
-                  result.packageName !== sanityPackage
+                  result.packageName !==
+                  sanityPackage
                 ) {
                   throw new Error(
-                    `Package mismatch: expected "${sanityPackage}", got "${result.packageName}"`
+                    `Package name mismatch: expected "${sanityPackage}", got "${result.packageName}"`
                   );
                 }
 
                 if (!result.working) {
-                  console.log("Sanity error:");
-                  console.log(result.error);
+                  console.error(
+                    "Sanity check failed:"
+                  );
+
+                  console.error(
+                    result.error
+                  );
 
                   throw new Error(
                     "Known-good package failed."
                   );
                 }
 
-                console.log("SANITY CHECK PASSED");
+                console.log(
+                  "SANITY CHECK PASSED"
+                );
               } finally {
                 await context.close();
               }
@@ -282,7 +293,8 @@ window.__ARCH_RESULT__ = {
              */
 
             async function worker(workerId) {
-              const context = await browser.newContext();
+              const context =
+                await browser.newContext();
 
               try {
                 while (true) {
@@ -292,8 +304,11 @@ window.__ARCH_RESULT__ = {
                     return;
                   }
 
-                  const packageName = packages[index];
-                  const encoded = encodePackage(packageName);
+                  const packageName =
+                    packages[index];
+
+                  const encoded =
+                    encodePackage(packageName);
 
                   console.log(
                     `[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`
@@ -302,12 +317,14 @@ window.__ARCH_RESULT__ = {
                   let page = null;
 
                   try {
-                    page = await context.newPage();
+                    page =
+                      await context.newPage();
 
                     await page.goto(
                       `http://127.0.0.1:4173/test/${encoded}`,
                       {
-                        waitUntil: "domcontentloaded",
+                        waitUntil:
+                          "domcontentloaded",
                         timeout: 30000
                       }
                     );
@@ -321,15 +338,17 @@ window.__ARCH_RESULT__ = {
                       }
                     );
 
-                    const result = await page.evaluate(
-                      () => window.__ARCH_RESULT__
-                    );
+                    const result =
+                      await page.evaluate(
+                        () => window.__ARCH_RESULT__
+                      );
 
                     if (
-                      result.packageName !== packageName
+                      result.packageName !==
+                      packageName
                     ) {
                       throw new Error(
-                        `Package mismatch: expected "${packageName}", got "${result.packageName}"`
+                        `Package name mismatch: expected "${packageName}", got "${result.packageName}"`
                       );
                     }
 
@@ -346,10 +365,9 @@ window.__ARCH_RESULT__ = {
 
                       if (
                         result.error &&
-                        errorSamples.length <
-                          MAX_ERROR_SAMPLES
+                        errors.length < 10
                       ) {
-                        errorSamples.push({
+                        errors.push({
                           package: packageName,
                           error: result.error
                         });
@@ -360,11 +378,8 @@ window.__ARCH_RESULT__ = {
                       `[Worker ${workerId}] ERROR ${packageName}`
                     );
 
-                    if (
-                      errorSamples.length <
-                        MAX_ERROR_SAMPLES
-                    ) {
-                      errorSamples.push({
+                    if (errors.length < 10) {
+                      errors.push({
                         package: packageName,
                         error: String(error)
                       });
@@ -388,16 +403,13 @@ window.__ARCH_RESULT__ = {
                     packages.length
                   )
                 },
-                (_, index) => worker(index + 1)
+                (_, index) =>
+                  worker(index + 1)
               )
             );
 
             await browser.close();
             server.close();
-
-            /*
-             * Update progress.
-             */
 
             let previousOffset = 0;
 
@@ -410,15 +422,11 @@ window.__ARCH_RESULT__ = {
               );
 
               previousOffset =
-                progress.offset || 0;
+                Number(progress.offset) || 0;
             }
 
             const newOffset =
               previousOffset + packages.length;
-
-            /*
-             * Compact result file.
-             */
 
             const result = {
               packagetestedindex: newOffset,
@@ -428,7 +436,11 @@ window.__ARCH_RESULT__ = {
 
             fs.writeFileSync(
               "results.json",
-              JSON.stringify(result, null, 2) + "\n"
+              JSON.stringify(
+                result,
+                null,
+                2
+              ) + "\n"
             );
 
             fs.writeFileSync(
@@ -443,31 +455,59 @@ window.__ARCH_RESULT__ = {
             );
 
             console.log("");
-            console.log("================================");
-            console.log("ARCH.js COMPATIBILITY RESULTS");
-            console.log("================================");
-            console.log(`Tested:  ${packages.length}`);
-            console.log(`Working: ${working.length}`);
-            console.log(`Index:   ${newOffset}`);
-            console.log("================================");
+            console.log(
+              "================================"
+            );
+            console.log(
+              "ARCH.js COMPATIBILITY RESULTS"
+            );
+            console.log(
+              "================================"
+            );
+            console.log(
+              `Tested:  ${packages.length}`
+            );
+            console.log(
+              `Working: ${working.length}`
+            );
+            console.log(
+              `Index:   ${newOffset}`
+            );
+            console.log(
+              "================================"
+            );
 
-            if (errorSamples.length > 0) {
+            if (errors.length > 0) {
               console.log("");
-              console.log("Failure samples:");
+              console.log(
+                "Failure samples:"
+              );
 
-              for (const sample of errorSamples) {
+              for (const error of errors) {
                 console.log("");
-                console.log(`Package: ${sample.package}`);
-                console.log(sample.error);
+                console.log(
+                  `Package: ${error.package}`
+                );
+                console.log(
+                  error.error
+                );
               }
             }
-          })().catch(error => {
+          }
+
+          main().catch(error => {
             console.error("");
-            console.error("FATAL TEST ERROR");
+            console.error(
+              "FATAL TEST ERROR"
+            );
             console.error(error);
             process.exit(1);
           });
-          EOF
+          NODE
+
+      - name: Run compatibility tester
+        run: |
+          node tester.cjs
 
       - name: Commit results
         run: |
