@@ -32,8 +32,7 @@ jobs:
           node <<'EOF'
           const fs = require("fs");
 
-          const packages =
-            require("all-the-package-names");
+          const packages = require("all-the-package-names");
 
           fs.writeFileSync(
             "packages.json",
@@ -109,9 +108,7 @@ jobs:
             );
 
             if (packages.length === 0) {
-              console.log(
-                "No packages left to test."
-              );
+              console.log("No packages left to test.");
               return;
             }
 
@@ -120,39 +117,70 @@ jobs:
             let nextIndex = 0;
             const working = [];
             const errorSamples = [];
-
             const MAX_ERROR_SAMPLES = 20;
 
             /*
-             * Local server only exists to give every browser page
-             * a normal HTTP origin.
+             * Encode/decode package names through base64url.
              *
-             * The <base> element below makes ARCH.js resolve
-             * config.json and other relative resources from the
-             * real ARCH.js GitHub Pages origin.
+             * This avoids all URL parsing ambiguity.
+             */
+            function encodePackage(name) {
+              return Buffer
+                .from(name, "utf8")
+                .toString("base64")
+                .replace(/\+/g, "-")
+                .replace(/\//g, "_")
+                .replace(/=+$/g, "");
+            }
+
+            function decodePackage(value) {
+              let base64 = value
+                .replace(/-/g, "+")
+                .replace(/_/g, "/");
+
+              while (base64.length % 4 !== 0) {
+                base64 += "=";
+              }
+
+              return Buffer
+                .from(base64, "base64")
+                .toString("utf8");
+            }
+
+            /*
+             * Local HTTP server.
+             *
+             * The package name is encoded directly into the path:
+             *
+             * /test/<base64url>
              */
 
-            const server =
-              http.createServer(
-                (req, res) => {
+            const server = http.createServer(
+              (req, res) => {
+                try {
+                  const pathname =
+                    new URL(
+                      req.url,
+                      "http://127.0.0.1:4173"
+                    ).pathname;
 
-                  const url = new URL(
-                    req.url,
-                    "http://127.0.0.1:4173"
-                  );
-
-                  const packageName =
-                    url.searchParams.get(
-                      "package"
-                    );
-
-                  if (!packageName) {
-                    res.writeHead(400);
-                    res.end(
-                      "Missing package"
-                    );
+                  if (!pathname.startsWith("/test/")) {
+                    res.writeHead(404);
+                    res.end("Not found");
                     return;
                   }
+
+                  const encoded =
+                    pathname.slice(
+                      "/test/".length
+                    );
+
+                  const packageName =
+                    decodePackage(encoded);
+
+                  console.log(
+                    `[SERVER] decoded package: ${packageName}`
+                  );
 
                   const html = `<!DOCTYPE html>
 <html>
@@ -168,41 +196,42 @@ jobs:
 
 <script type="module">
 
-  window.__ARCH_RESULT__ = {
-    done: false,
-    working: false,
-    error: null
-  };
+window.__ARCH_RESULT__ = {
+  done: false,
+  working: false,
+  packageName: ${JSON.stringify(packageName)},
+  error: null
+};
 
-  (async () => {
+(async () => {
+  try {
 
-    try {
+    await importPackage(
+      ${JSON.stringify(packageName)}
+    );
 
-      await importPackage(
-        ${JSON.stringify(packageName)}
-      );
+    window.__ARCH_RESULT__ = {
+      done: true,
+      working: true,
+      packageName: ${JSON.stringify(packageName)},
+      error: null
+    };
 
-      window.__ARCH_RESULT__ = {
-        done: true,
-        working: true,
-        error: null
-      };
+  } catch (error) {
 
-    } catch (error) {
+    window.__ARCH_RESULT__ = {
+      done: true,
+      working: false,
+      packageName: ${JSON.stringify(packageName)},
+      error: String(
+        error?.stack ||
+        error?.message ||
+        error
+      ).slice(0, 10000)
+    };
 
-      window.__ARCH_RESULT__ = {
-        done: true,
-        working: false,
-        error: String(
-          error?.stack ||
-          error?.message ||
-          error
-        ).slice(0, 10000)
-      };
-
-    }
-
-  })();
+  }
+})();
 
 </script>
 
@@ -218,12 +247,18 @@ jobs:
                   );
 
                   res.end(html);
+
+                } catch (error) {
+                  res.writeHead(500);
+                  res.end(
+                    String(error)
+                  );
                 }
-              );
+              }
+            );
 
             await new Promise(
               (resolve, reject) => {
-
                 server.once(
                   "error",
                   reject
@@ -250,10 +285,10 @@ jobs:
              * --------------------------------------------------
              * SANITY CHECK
              * --------------------------------------------------
-             *
-             * This was confirmed working in the previous
-             * single-worker run.
              */
+
+            const sanityPackage =
+              "02-webpack-numbers-gx";
 
             console.log("");
             console.log(
@@ -263,7 +298,7 @@ jobs:
               "SANITY CHECK"
             );
             console.log(
-              "02-webpack-numbers-gx"
+              sanityPackage
             );
             console.log(
               "================================"
@@ -277,9 +312,17 @@ jobs:
                 await context.newPage();
 
               try {
+                const encoded =
+                  encodePackage(
+                    sanityPackage
+                  );
+
+                console.log(
+                  `Encoded: ${encoded}`
+                );
 
                 await page.goto(
-                  "http://127.0.0.1:4173/?package=02-webpack-numbers-gx",
+                  `http://127.0.0.1:4173/test/${encoded}`,
                   {
                     waitUntil:
                       "domcontentloaded",
@@ -302,14 +345,30 @@ jobs:
                       window.__ARCH_RESULT__
                   );
 
-                if (!sanity.working) {
+                console.log(
+                  `Browser received: ${sanity.packageName}`
+                );
 
-                  console.log(
-                    "SANITY CHECK FAILED"
+                if (
+                  sanity.packageName !==
+                  sanityPackage
+                ) {
+                  throw new Error(
+                    `Package name mismatch: expected "${sanityPackage}", got "${sanity.packageName}"`
                   );
+                }
 
+                console.log(
+                  `Sanity status: ${
+                    sanity.working
+                      ? "PASS"
+                      : "FAIL"
+                  }`
+                );
+
+                if (!sanity.working) {
                   console.log(
-                    "Error:"
+                    "Sanity error:"
                   );
 
                   console.log(
@@ -321,39 +380,29 @@ jobs:
                   );
                 }
 
-                console.log(
-                  "SANITY CHECK PASSED"
-                );
-
               } finally {
-
                 await context.close();
               }
             }
 
+            console.log(
+              "=== SANITY CHECK PASSED ==="
+            );
+
             /*
              * --------------------------------------------------
-             * CONCURRENT WORKERS
+             * WORKERS
              * --------------------------------------------------
              */
 
             async function worker(
               workerId
             ) {
-
-              /*
-               * Give each worker its own isolated browser
-               * context so ARCH.js storage/cache/service-worker
-               * state cannot collide between workers.
-               */
-
               const context =
                 await browser.newContext();
 
               try {
-
                 while (true) {
-
                   const index =
                     nextIndex++;
 
@@ -367,19 +416,23 @@ jobs:
                   const packageName =
                     packages[index];
 
-                  let page = null;
+                  const encoded =
+                    encodePackage(
+                      packageName
+                    );
 
                   console.log(
                     `[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`
                   );
 
-                  try {
+                  let page = null;
 
+                  try {
                     page =
                       await context.newPage();
 
                     await page.goto(
-                      `http://127.0.0.1:4173/?package=${encodeURIComponent(packageName)}`,
+                      `http://127.0.0.1:4173/test/${encoded}`,
                       {
                         waitUntil:
                           "domcontentloaded",
@@ -402,10 +455,21 @@ jobs:
                           window.__ARCH_RESULT__
                       );
 
-                    if (
-                      result.working
-                    ) {
+                    /*
+                     * Make sure the browser got the exact
+                     * package that this worker intended to test.
+                     */
 
+                    if (
+                      result.packageName !==
+                      packageName
+                    ) {
+                      throw new Error(
+                        `Package name mismatch: expected "${packageName}", got "${result.packageName}"`
+                      );
+                    }
+
+                    if (result.working) {
                       working.push(
                         packageName
                       );
@@ -415,7 +479,6 @@ jobs:
                       );
 
                     } else {
-
                       console.log(
                         `[Worker ${workerId}] FAIL ${packageName}`
                       );
@@ -425,11 +488,9 @@ jobs:
                         errorSamples.length <
                           MAX_ERROR_SAMPLES
                       ) {
-
                         errorSamples.push({
                           package:
                             packageName,
-
                           error:
                             result.error
                         });
@@ -437,7 +498,6 @@ jobs:
                     }
 
                   } catch (error) {
-
                     console.log(
                       `[Worker ${workerId}] ERROR ${packageName}`
                     );
@@ -446,18 +506,15 @@ jobs:
                       errorSamples.length <
                         MAX_ERROR_SAMPLES
                     ) {
-
                       errorSamples.push({
                         package:
                           packageName,
-
                         error:
                           String(error)
                       });
                     }
 
                   } finally {
-
                     if (page) {
                       await page.close();
                     }
@@ -465,7 +522,6 @@ jobs:
                 }
 
               } finally {
-
                 await context.close();
               }
             }
@@ -480,9 +536,7 @@ jobs:
                     )
                 },
                 (_, index) =>
-                  worker(
-                    index + 1
-                  )
+                  worker(index + 1)
               )
             );
 
@@ -560,34 +614,22 @@ jobs:
             console.log(
               "================================"
             );
-
             console.log(
               `Tested:  ${packages.length}`
             );
-
             console.log(
               `Working: ${working.length}`
             );
-
             console.log(
               `Index:   ${newOffset}`
             );
-
             console.log(
               "================================"
             );
 
-            /*
-             * Print a small number of real errors to the
-             * Actions log for debugging.
-             *
-             * These are NOT stored in results.json.
-             */
-
             if (
               errorSamples.length > 0
             ) {
-
               console.log("");
               console.log(
                 "Failure samples:"
@@ -597,12 +639,10 @@ jobs:
                 const sample of
                 errorSamples
               ) {
-
                 console.log("");
                 console.log(
                   `Package: ${sample.package}`
                 );
-
                 console.log(
                   sample.error
                 );
@@ -610,16 +650,11 @@ jobs:
             }
 
           })().catch(error => {
-
             console.error("");
             console.error(
               "FATAL TEST ERROR"
             );
-
-            console.error(
-              error
-            );
-
+            console.error(error);
             process.exit(1);
           });
           EOF
