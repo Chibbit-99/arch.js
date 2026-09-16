@@ -11,7 +11,474 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
 
     steps:
-      - name: Test
-        run: echo "Workflow is valid"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: |
+          npm install --no-save playwright all-the-package-names
+          npx playwright install --with-deps chromium
+
+      - name: Get npm package list
+        run: |
+          node <<'EOF'
+          const fs = require("fs");
+
+          const packages = require("all-the-package-names");
+
+          fs.writeFileSync(
+            "packages.json",
+            JSON.stringify(packages)
+          );
+
+          console.log(`Found ${packages.length} npm packages`);
+          EOF
+
+      - name: Select next 5000 packages
+        run: |
+          node <<'EOF'
+          const fs = require("fs");
+
+          const packages = JSON.parse(
+            fs.readFileSync("packages.json", "utf8")
+          );
+
+          let offset = 0;
+
+          if (fs.existsSync("progress.json")) {
+            const progress = JSON.parse(
+              fs.readFileSync("progress.json", "utf8")
+            );
+
+            offset = progress.offset || 0;
+          }
+
+          const batch = packages.slice(offset, offset + 5000);
+
+          fs.writeFileSync(
+            "batch.json",
+            JSON.stringify(batch)
+          );
+
+          console.log(`Starting at package index ${offset}`);
+          console.log(`Batch size: ${batch.length}`);
+          console.log(
+            `Range: ${offset + 1}-${offset + batch.length}`
+          );
+          EOF
+
+      - name: Test ARCH.js compatibility
+        run: |
+          node <<'EOF'
+          (async () => {
+            const fs = require("fs");
+            const http = require("http");
+            const { chromium } = require("playwright");
+
+            const packages = JSON.parse(
+              fs.readFileSync("batch.json", "utf8")
+            );
+
+            if (packages.length === 0) {
+              console.log("No packages left to test.");
+              return;
+            }
+
+            const CONCURRENCY = 8;
+
+            let nextIndex = 0;
+            const working = [];
+            const errorSamples = [];
+            const MAX_ERROR_SAMPLES = 10;
+
+            function encodePackage(name) {
+              return Buffer
+                .from(name, "utf8")
+                .toString("base64")
+                .replace(/\+/g, "-")
+                .replace(/\//g, "_")
+                .replace(/=+$/g, "");
+            }
+
+            function decodePackage(value) {
+              let base64 = value
+                .replace(/-/g, "+")
+                .replace(/_/g, "/");
+
+              while (base64.length % 4 !== 0) {
+                base64 += "=";
+              }
+
+              return Buffer
+                .from(base64, "base64")
+                .toString("utf8");
+            }
+
+            const server = http.createServer((req, res) => {
+              try {
+                const pathname = new URL(
+                  req.url,
+                  "http://127.0.0.1:4173"
+                ).pathname;
+
+                if (!pathname.startsWith("/test/")) {
+                  res.writeHead(404);
+                  res.end("Not found");
+                  return;
+                }
+
+                const encoded = pathname.slice("/test/".length);
+                const packageName = decodePackage(encoded);
+
+                const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <base href="https://chibbit-99.github.io/arch.js/">
+  <script src="https://chibbit-99.github.io/arch.js/releases/latest.js"></script>
+</head>
+<body>
+
+<script type="module">
+window.__ARCH_RESULT__ = {
+  done: false,
+  working: false,
+  packageName: ${JSON.stringify(packageName)},
+  error: null
+};
+
+(async () => {
+  try {
+    await importPackage(${JSON.stringify(packageName)});
+
+    window.__ARCH_RESULT__ = {
+      done: true,
+      working: true,
+      packageName: ${JSON.stringify(packageName)},
+      error: null
+    };
+  } catch (error) {
+    window.__ARCH_RESULT__ = {
+      done: true,
+      working: false,
+      packageName: ${JSON.stringify(packageName)},
+      error: String(
+        error?.stack ||
+        error?.message ||
+        error
+      ).slice(0, 10000)
+    };
+  }
+})();
+</script>
+
+</body>
+</html>`;
+
+                res.writeHead(200, {
+                  "Content-Type": "text/html"
+                });
+
+                res.end(html);
+              } catch (error) {
+                res.writeHead(500);
+                res.end(String(error));
+              }
+            });
+
+            await new Promise((resolve, reject) => {
+              server.once("error", reject);
+
+              server.listen(
+                4173,
+                "127.0.0.1",
+                resolve
+              );
+            });
+
+            console.log("Local test server started.");
+
+            const browser = await chromium.launch({
+              headless: true
+            });
+
+            /*
+             * Known-good sanity check.
+             */
+
+            const sanityPackage = "02-webpack-numbers-gx";
+
+            console.log("");
+            console.log("================================");
+            console.log("SANITY CHECK");
+            console.log(sanityPackage);
+            console.log("================================");
+
+            {
+              const context = await browser.newContext();
+              const page = await context.newPage();
+
+              try {
+                const encoded = encodePackage(sanityPackage);
+
+                await page.goto(
+                  `http://127.0.0.1:4173/test/${encoded}`,
+                  {
+                    waitUntil: "domcontentloaded",
+                    timeout: 30000
+                  }
+                );
+
+                await page.waitForFunction(
+                  () =>
+                    window.__ARCH_RESULT__ &&
+                    window.__ARCH_RESULT__.done === true,
+                  {
+                    timeout: 60000
+                  }
+                );
+
+                const result = await page.evaluate(
+                  () => window.__ARCH_RESULT__
+                );
+
+                console.log(
+                  `Browser received: ${result.packageName}`
+                );
+
+                if (
+                  result.packageName !== sanityPackage
+                ) {
+                  throw new Error(
+                    `Package mismatch: expected "${sanityPackage}", got "${result.packageName}"`
+                  );
+                }
+
+                if (!result.working) {
+                  console.log("Sanity error:");
+                  console.log(result.error);
+
+                  throw new Error(
+                    "Known-good package failed."
+                  );
+                }
+
+                console.log("SANITY CHECK PASSED");
+              } finally {
+                await context.close();
+              }
+            }
+
+            /*
+             * Concurrent workers.
+             */
+
+            async function worker(workerId) {
+              const context = await browser.newContext();
+
+              try {
+                while (true) {
+                  const index = nextIndex++;
+
+                  if (index >= packages.length) {
+                    return;
+                  }
+
+                  const packageName = packages[index];
+                  const encoded = encodePackage(packageName);
+
+                  console.log(
+                    `[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`
+                  );
+
+                  let page = null;
+
+                  try {
+                    page = await context.newPage();
+
+                    await page.goto(
+                      `http://127.0.0.1:4173/test/${encoded}`,
+                      {
+                        waitUntil: "domcontentloaded",
+                        timeout: 30000
+                      }
+                    );
+
+                    await page.waitForFunction(
+                      () =>
+                        window.__ARCH_RESULT__ &&
+                        window.__ARCH_RESULT__.done === true,
+                      {
+                        timeout: 60000
+                      }
+                    );
+
+                    const result = await page.evaluate(
+                      () => window.__ARCH_RESULT__
+                    );
+
+                    if (
+                      result.packageName !== packageName
+                    ) {
+                      throw new Error(
+                        `Package mismatch: expected "${packageName}", got "${result.packageName}"`
+                      );
+                    }
+
+                    if (result.working) {
+                      working.push(packageName);
+
+                      console.log(
+                        `[Worker ${workerId}] WORKS ${packageName}`
+                      );
+                    } else {
+                      console.log(
+                        `[Worker ${workerId}] FAIL ${packageName}`
+                      );
+
+                      if (
+                        result.error &&
+                        errorSamples.length <
+                          MAX_ERROR_SAMPLES
+                      ) {
+                        errorSamples.push({
+                          package: packageName,
+                          error: result.error
+                        });
+                      }
+                    }
+                  } catch (error) {
+                    console.log(
+                      `[Worker ${workerId}] ERROR ${packageName}`
+                    );
+
+                    if (
+                      errorSamples.length <
+                        MAX_ERROR_SAMPLES
+                    ) {
+                      errorSamples.push({
+                        package: packageName,
+                        error: String(error)
+                      });
+                    }
+                  } finally {
+                    if (page) {
+                      await page.close();
+                    }
+                  }
+                }
+              } finally {
+                await context.close();
+              }
+            }
+
+            await Promise.all(
+              Array.from(
+                {
+                  length: Math.min(
+                    CONCURRENCY,
+                    packages.length
+                  )
+                },
+                (_, index) => worker(index + 1)
+              )
+            );
+
+            await browser.close();
+            server.close();
+
+            /*
+             * Update progress.
+             */
+
+            let previousOffset = 0;
+
+            if (fs.existsSync("progress.json")) {
+              const progress = JSON.parse(
+                fs.readFileSync(
+                  "progress.json",
+                  "utf8"
+                )
+              );
+
+              previousOffset =
+                progress.offset || 0;
+            }
+
+            const newOffset =
+              previousOffset + packages.length;
+
+            /*
+             * Compact result file.
+             */
+
+            const result = {
+              packagetestedindex: newOffset,
+              working,
+              working_count: working.length
+            };
+
+            fs.writeFileSync(
+              "results.json",
+              JSON.stringify(result, null, 2) + "\n"
+            );
+
+            fs.writeFileSync(
+              "progress.json",
+              JSON.stringify(
+                {
+                  offset: newOffset
+                },
+                null,
+                2
+              ) + "\n"
+            );
+
+            console.log("");
+            console.log("================================");
+            console.log("ARCH.js COMPATIBILITY RESULTS");
+            console.log("================================");
+            console.log(`Tested:  ${packages.length}`);
+            console.log(`Working: ${working.length}`);
+            console.log(`Index:   ${newOffset}`);
+            console.log("================================");
+
+            if (errorSamples.length > 0) {
+              console.log("");
+              console.log("Failure samples:");
+
+              for (const sample of errorSamples) {
+                console.log("");
+                console.log(`Package: ${sample.package}`);
+                console.log(sample.error);
+              }
+            }
+          })().catch(error => {
+            console.error("");
+            console.error("FATAL TEST ERROR");
+            console.error(error);
+            process.exit(1);
+          });
+          EOF
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add results.json progress.json
+
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+          else
+            git commit -m "chore: update ARCH.js npm compatibility"
+            git push
+          fi
