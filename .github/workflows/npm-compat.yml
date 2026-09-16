@@ -31,7 +31,9 @@ jobs:
         run: |
           node <<'EOF'
           const fs = require("fs");
-          const packages = require("all-the-package-names");
+
+          const packages =
+            require("all-the-package-names");
 
           fs.writeFileSync(
             "packages.json",
@@ -49,14 +51,20 @@ jobs:
           const fs = require("fs");
 
           const packages = JSON.parse(
-            fs.readFileSync("packages.json", "utf8")
+            fs.readFileSync(
+              "packages.json",
+              "utf8"
+            )
           );
 
           let offset = 0;
 
           if (fs.existsSync("progress.json")) {
             const progress = JSON.parse(
-              fs.readFileSync("progress.json", "utf8")
+              fs.readFileSync(
+                "progress.json",
+                "utf8"
+              )
             );
 
             offset = progress.offset || 0;
@@ -73,15 +81,19 @@ jobs:
           );
 
           console.log(
-            `Testing packages ${offset + 1}-${offset + batch.length} of ${packages.length}`
+            `Starting at package index ${offset}`
           );
 
           console.log(
             `Batch size: ${batch.length}`
           );
+
+          console.log(
+            `Range: ${offset + 1}-${offset + batch.length}`
+          );
           EOF
 
-      - name: Test packages
+      - name: Test ARCH.js
         run: |
           node <<'EOF'
           (async () => {
@@ -90,36 +102,16 @@ jobs:
             const { chromium } = require("playwright");
 
             const packages = JSON.parse(
-              fs.readFileSync("batch.json", "utf8")
+              fs.readFileSync(
+                "batch.json",
+                "utf8"
+              )
             );
 
             if (packages.length === 0) {
-              console.log("No packages left to test.");
-
-              const currentIndex = fs.existsSync("progress.json")
-                ? (
-                    JSON.parse(
-                      fs.readFileSync(
-                        "progress.json",
-                        "utf8"
-                      )
-                    ).offset || 0
-                  )
-                : 0;
-
-              fs.writeFileSync(
-                "results.json",
-                JSON.stringify(
-                  {
-                    packagetestedindex: currentIndex,
-                    working: [],
-                    working_count: 0
-                  },
-                  null,
-                  2
-                ) + "\n"
+              console.log(
+                "No packages left."
               );
-
               return;
             }
 
@@ -128,66 +120,111 @@ jobs:
             let nextIndex = 0;
             const working = [];
 
-            const server = http.createServer(
-              (req, res) => {
-                try {
-                  const url = new URL(
-                    req.url,
-                    "http://127.0.0.1:4173"
-                  );
+            const server =
+              http.createServer(
+                (req, res) => {
+                  try {
+                    const url = new URL(
+                      req.url,
+                      "http://127.0.0.1:4173"
+                    );
 
-                  const packageName =
-                    url.searchParams.get("package");
+                    const packageName =
+                      url.searchParams.get(
+                        "package"
+                      );
 
-                  if (!packageName) {
-                    res.writeHead(400);
-                    res.end("Missing package");
-                    return;
-                  }
+                    if (!packageName) {
+                      res.writeHead(400);
+                      res.end(
+                        "Missing package"
+                      );
+                      return;
+                    }
 
-                  const html = `<!DOCTYPE html>
+                    const html = `<!DOCTYPE html>
           <html>
           <head>
             <meta charset="UTF-8">
-            <script src="https://chibbit-99.github.io/arch.js/releases/latest.js"></script>
+
+            <script
+              src="https://chibbit-99.github.io/arch.js/releases/latest.js"
+            ></script>
           </head>
+
           <body>
-            <script type="module">
-              window.__ARCH_DONE__ = false;
-              window.__ARCH_WORKING__ = false;
 
-              (async () => {
-                try {
-                  await importPackage(
-                    ${JSON.stringify(packageName)}
-                  );
+          <script type="module">
 
-                  window.__ARCH_WORKING__ = true;
-                } catch (error) {
-                  window.__ARCH_WORKING__ = false;
-                }
+            window.__ARCH_RESULT__ = {
+              done: false,
+              working: false,
+              error: null
+            };
 
-                window.__ARCH_DONE__ = true;
-              })();
-            </script>
+            (async () => {
+
+              try {
+
+                await importPackage(
+                  ${JSON.stringify(packageName)}
+                );
+
+                window.__ARCH_RESULT__ = {
+                  done: true,
+                  working: true,
+                  error: null
+                };
+
+              } catch (error) {
+
+                window.__ARCH_RESULT__ = {
+                  done: true,
+                  working: false,
+                  error: String(
+                    error?.stack ||
+                    error?.message ||
+                    error
+                  ).slice(0, 10000)
+                };
+
+              }
+
+            })();
+
+          </script>
+
           </body>
           </html>`;
 
-                  res.writeHead(200, {
-                    "Content-Type": "text/html"
-                  });
+                    res.writeHead(
+                      200,
+                      {
+                        "Content-Type":
+                          "text/html"
+                      }
+                    );
 
-                  res.end(html);
-                } catch (error) {
-                  res.writeHead(500);
-                  res.end("Server error");
+                    res.end(html);
+
+                  } catch (error) {
+
+                    res.writeHead(500);
+
+                    res.end(
+                      String(error)
+                    );
+                  }
                 }
-              }
-            );
+              );
 
             await new Promise(
               (resolve, reject) => {
-                server.once("error", reject);
+
+                server.once(
+                  "error",
+                  reject
+                );
 
                 server.listen(
                   4173,
@@ -197,88 +234,249 @@ jobs:
               }
             );
 
+            console.log(
+              "Local test server started."
+            );
+
             const browser =
               await chromium.launch({
                 headless: true
               });
 
-            async function worker(workerId) {
-              while (true) {
-                const index = nextIndex++;
+            /*
+             * --------------------------------------------------
+             * Known-good sanity check
+             * --------------------------------------------------
+             *
+             * This package worked in the earlier single-worker
+             * version. If it fails here, the problem is the
+             * browser/test harness, not the package batch.
+             */
 
-                if (index >= packages.length) {
-                  return;
-                }
+            console.log("");
+            console.log(
+              "=== SANITY CHECK ==="
+            );
+            console.log(
+              "Testing 02-webpack-numbers-gx"
+            );
 
-                const packageName =
-                  packages[index];
+            {
+              const context =
+                await browser.newContext();
 
-                let page = null;
+              const page =
+                await context.newPage();
 
-                console.log(
-                  `[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`
+              try {
+
+                await page.goto(
+                  "http://127.0.0.1:4173/?package=02-webpack-numbers-gx",
+                  {
+                    waitUntil:
+                      "domcontentloaded",
+                    timeout: 30000
+                  }
                 );
 
-                try {
-                  page =
-                    await browser.newPage();
+                await page.waitForFunction(
+                  () =>
+                    window.__ARCH_RESULT__ &&
+                    window.__ARCH_RESULT__.done === true,
+                  {
+                    timeout: 60000
+                  }
+                );
 
-                  await page.goto(
-                    `http://127.0.0.1:4173/?package=${encodeURIComponent(packageName)}`,
-                    {
-                      waitUntil:
-                        "domcontentloaded",
-                      timeout: 30000
-                    }
-                  );
-
-                  await page.waitForFunction(
+                const sanity =
+                  await page.evaluate(
                     () =>
-                      window.__ARCH_DONE__ === true,
-                    {
-                      timeout: 60000
-                    }
+                      window.__ARCH_RESULT__
                   );
 
-                  const result =
-                    await page.evaluate(
-                      () => ({
-                        working:
-                          window.__ARCH_WORKING__
-                      })
-                    );
+                console.log(
+                  `Sanity status: ${
+                    sanity.working
+                      ? "PASS"
+                      : "FAIL"
+                  }`
+                );
 
-                  if (result.working) {
-                    working.push(packageName);
+                if (!sanity.working) {
+                  console.log(
+                    "Sanity error:"
+                  );
 
-                    console.log(
-                      `[Worker ${workerId}] WORKS ${packageName}`
-                    );
-                  } else {
-                    console.log(
-                      `[Worker ${workerId}] FAIL ${packageName}`
-                    );
+                  console.log(
+                    sanity.error
+                  );
+
+                  await browser.close();
+                  server.close();
+
+                  throw new Error(
+                    "Known-good package failed. Stopping before running the batch."
+                  );
+                }
+
+              } finally {
+                await context.close();
+              }
+            }
+
+            console.log(
+              "=== SANITY CHECK PASSED ==="
+            );
+            console.log("");
+
+            /*
+             * --------------------------------------------------
+             * Concurrent workers
+             * --------------------------------------------------
+             */
+
+            const errorSamples = [];
+            const MAX_ERROR_SAMPLES = 20;
+
+            async function worker(workerId) {
+
+              /*
+               * Every worker has its own browser context.
+               * This isolates cookies, storage, service workers,
+               * caches and other browser state.
+               */
+
+              const context =
+                await browser.newContext();
+
+              try {
+
+                while (true) {
+
+                  const index =
+                    nextIndex++;
+
+                  if (
+                    index >=
+                    packages.length
+                  ) {
+                    return;
                   }
 
-                } catch (error) {
+                  const packageName =
+                    packages[index];
+
                   console.log(
-                    `[Worker ${workerId}] ERROR ${packageName}`
+                    `[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`
                   );
-                } finally {
-                  if (page) {
-                    await page.close();
+
+                  let page = null;
+
+                  try {
+
+                    page =
+                      await context.newPage();
+
+                    await page.goto(
+                      `http://127.0.0.1:4173/?package=${encodeURIComponent(packageName)}`,
+                      {
+                        waitUntil:
+                          "domcontentloaded",
+                        timeout: 30000
+                      }
+                    );
+
+                    await page.waitForFunction(
+                      () =>
+                        window.__ARCH_RESULT__ &&
+                        window.__ARCH_RESULT__.done === true,
+                      {
+                        timeout: 60000
+                      }
+                    );
+
+                    const result =
+                      await page.evaluate(
+                        () =>
+                          window.__ARCH_RESULT__
+                      );
+
+                    if (
+                      result.working
+                    ) {
+
+                      working.push(
+                        packageName
+                      );
+
+                      console.log(
+                        `[Worker ${workerId}] WORKS ${packageName}`
+                      );
+
+                    } else {
+
+                      console.log(
+                        `[Worker ${workerId}] FAIL ${packageName}`
+                      );
+
+                      if (
+                        result.error &&
+                        errorSamples.length <
+                          MAX_ERROR_SAMPLES
+                      ) {
+
+                        errorSamples.push({
+                          package:
+                            packageName,
+
+                          error:
+                            result.error
+                        });
+                      }
+                    }
+
+                  } catch (error) {
+
+                    console.log(
+                      `[Worker ${workerId}] ERROR ${packageName}`
+                    );
+
+                    if (
+                      errorSamples.length <
+                        MAX_ERROR_SAMPLES
+                    ) {
+
+                      errorSamples.push({
+                        package:
+                          packageName,
+
+                        error:
+                          String(error)
+                      });
+                    }
+
+                  } finally {
+
+                    if (page) {
+                      await page.close();
+                    }
                   }
                 }
+
+              } finally {
+
+                await context.close();
               }
             }
 
             await Promise.all(
               Array.from(
                 {
-                  length: Math.min(
-                    CONCURRENCY,
-                    packages.length
-                  )
+                  length:
+                    Math.min(
+                      CONCURRENCY,
+                      packages.length
+                    )
                 },
                 (_, index) =>
                   worker(index + 1)
@@ -286,10 +484,19 @@ jobs:
             );
 
             await browser.close();
+
             server.close();
 
+            /*
+             * --------------------------------------------------
+             * Save results
+             * --------------------------------------------------
+             */
+
             const previousOffset =
-              fs.existsSync("progress.json")
+              fs.existsSync(
+                "progress.json"
+              )
                 ? (
                     JSON.parse(
                       fs.readFileSync(
@@ -301,7 +508,8 @@ jobs:
                 : 0;
 
             const newOffset =
-              previousOffset + packages.length;
+              previousOffset +
+              packages.length;
 
             const result = {
               packagetestedindex:
@@ -326,31 +534,89 @@ jobs:
               "progress.json",
               JSON.stringify(
                 {
-                  offset: newOffset
+                  offset:
+                    newOffset
                 },
                 null,
                 2
               ) + "\n"
             );
 
+            /*
+             * --------------------------------------------------
+             * Summary
+             * --------------------------------------------------
+             */
+
             console.log("");
             console.log(
-              "=============================="
+              "================================"
             );
+
             console.log(
-              `Tested: ${packages.length}`
+              "ARCH.js COMPATIBILITY RESULTS"
             );
+
+            console.log(
+              "================================"
+            );
+
+            console.log(
+              `Tested:  ${packages.length}`
+            );
+
             console.log(
               `Working: ${working.length}`
             );
+
             console.log(
-              `Index: ${newOffset}`
+              `Index:   ${newOffset}`
             );
+
             console.log(
-              "=============================="
+              "================================"
             );
+
+            /*
+             * Only print samples to the Actions log.
+             * They are NOT written to results.json.
+             */
+
+            if (
+              errorSamples.length > 0
+            ) {
+
+              console.log("");
+              console.log(
+                "First failure samples:"
+              );
+
+              for (
+                const sample of
+                errorSamples
+              ) {
+
+                console.log("");
+                console.log(
+                  `Package: ${sample.package}`
+                );
+
+                console.log(
+                  sample.error
+                );
+              }
+            }
+
           })().catch(error => {
-            console.error(error);
+
+            console.error("");
+            console.error(
+              "FATAL TEST ERROR"
+            );
+            console.error(
+              error
+            );
+
             process.exit(1);
           });
           EOF
