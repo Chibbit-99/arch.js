@@ -42,12 +42,15 @@ jobs:
           const fs = require("fs");
           const packages = JSON.parse(fs.readFileSync("packages.json", "utf8"));
           let offset = 0;
+
           if (fs.existsSync("progress.json")) {
             const progress = JSON.parse(fs.readFileSync("progress.json", "utf8"));
             offset = Number(progress.offset) || 0;
           }
+
           const batch = packages.slice(offset, offset + 5000);
           fs.writeFileSync("batch.json", JSON.stringify(batch));
+
           console.log(`Starting at package index: ${offset}`);
           console.log(`Batch size: ${batch.length}`);
           console.log(`Range: ${offset + 1}-${offset + batch.length}`);
@@ -57,15 +60,46 @@ jobs:
         run: |
           cat > tester.cjs <<'NODE'
           const fs = require("fs");
+          const path = require("path");
           const http = require("http");
           const { chromium } = require("playwright");
 
-          const ARCH_BASE = "https://chibbit-99.github.io/arch.js/";
           const CONCURRENCY = 2;
           const SANITY_PACKAGE = "02-webpack-numbers-gx";
           const PACKAGE_TIMEOUT = 60000;
           const PAGE_TIMEOUT = 30000;
-          const RETRIES = 2;
+          const PACKAGES_PER_BROWSER = 50;
+
+          const ARCH_RELEASE = path.resolve("releases/latest.js");
+          const ARCH_MODULE_DIR = path.resolve("module");
+
+          if (!fs.existsSync(ARCH_RELEASE)) {
+            throw new Error(`Missing local ARCH release: ${ARCH_RELEASE}`);
+          }
+
+          if (!fs.existsSync(ARCH_MODULE_DIR)) {
+            throw new Error(`Missing local ARCH module directory: ${ARCH_MODULE_DIR}`);
+          }
+
+          const moduleNames = fs.readdirSync(ARCH_MODULE_DIR)
+            .filter(name => name.endsWith(".js"))
+            .sort();
+
+          if (!moduleNames.length) {
+            throw new Error("No ARCH modules found in ./module");
+          }
+
+          const moduleFiles = new Map(
+            moduleNames.map(name => [
+              name,
+              fs.readFileSync(path.join(ARCH_MODULE_DIR, name), "utf8")
+            ])
+          );
+
+          const latestRelease = fs.readFileSync(ARCH_RELEASE, "utf8");
+
+          console.log(`Loaded local ARCH release: ${latestRelease.length} bytes`);
+          console.log(`Loaded ${moduleNames.length} local ARCH modules`);
 
           function encodePackage(name) {
             return Buffer.from(name, "utf8").toString("base64url");
@@ -84,12 +118,22 @@ jobs:
               ...(result.failedRequests || [])
             ].join("\n");
 
-            if (/Cannot resolve package entry/i.test(error)) return "unresolvable";
-            if (/Node builtin|Node-only code|Could not resolve|Module not found/i.test(error)) return "incompatible";
-            if (/Failed to fetch|NetworkError|net::|ECONNRESET|ERR_CONNECTION/i.test(allText)) return "network";
-            if (result.failedRequests?.length) return "network";
+            if (/Could not discover ARCH modules|Failed to fetch|Cannot resolve package entry/i.test(error)) {
+              if (/Could not discover ARCH modules/i.test(error)) return "environment";
+              return "unresolvable";
+            }
+
+            if (/Node builtin|Node-only code|Could not resolve|Module not found/i.test(error)) {
+              return "incompatible";
+            }
+
+            if (/Failed to fetch|NetworkError|net::|ECONNRESET|ERR_CONNECTION/i.test(allText)) {
+              return "network";
+            }
+
             if (/\b404\b/i.test(allText)) return "resource_error";
             if (/\b(408|429|500|502|503|504)\b/i.test(allText)) return "network";
+
             return "incompatible";
           }
 
@@ -106,7 +150,7 @@ jobs:
             };
           }
 
-          async function testPackageInBrowser(browser, packageName) {
+          async function testPackage(browser, packageName) {
             const context = await browser.newContext();
             const page = await context.newPage();
             const consoleErrors = [];
@@ -130,10 +174,59 @@ jobs:
             });
 
             page.on("requestfailed", request => {
-              failedRequests.push(`${request.url()}: ${request.failure()?.errorText || "unknown error"}`);
+              failedRequests.push(
+                `${request.url()}: ${request.failure()?.errorText || "unknown error"}`
+              );
             });
 
             try {
+              await page.route("**/*", async route => {
+                const url = route.request().url();
+
+                // Use the exact checked-out release instead of the live GitHub Pages copy.
+                if (url === "https://chibbit-99.github.io/arch.js/releases/latest.js") {
+                  await route.fulfill({
+                    status: 200,
+                    contentType: "application/javascript; charset=utf-8",
+                    body: latestRelease
+                  });
+                  return;
+                }
+
+                // Keep ARCH module discovery completely out of the GitHub API.
+                if (url === "https://api.github.com/repos/Chibbit-99/arch.js/contents/module?ref=main") {
+                  await route.fulfill({
+                    status: 200,
+                    contentType: "application/json; charset=utf-8",
+                    body: JSON.stringify(
+                      moduleNames.map(name => ({
+                        name,
+                        type: "file"
+                      }))
+                    )
+                  });
+                  return;
+                }
+
+                // Serve the checked-out module source instead of GitHub Pages.
+                const modulePrefix = "https://chibbit-99.github.io/arch.js/module/";
+                if (url.startsWith(modulePrefix)) {
+                  const moduleName = decodeURIComponent(url.slice(modulePrefix.length));
+                  const source = moduleFiles.get(moduleName);
+
+                  if (source !== undefined) {
+                    await route.fulfill({
+                      status: 200,
+                      contentType: "application/javascript; charset=utf-8",
+                      body: source
+                    });
+                    return;
+                  }
+                }
+
+                await route.continue();
+              });
+
               const encoded = encodePackage(packageName);
 
               await page.goto(
@@ -169,14 +262,12 @@ jobs:
           async function launchBrowser() {
             return chromium.launch({
               headless: true,
-              args: [
-                "--disable-dev-shm-usage"
-              ]
+              args: ["--disable-dev-shm-usage"]
             });
           }
 
           async function runSanityCheck(browser, label) {
-            const result = await testPackageInBrowser(browser, SANITY_PACKAGE);
+            const result = await testPackage(browser, SANITY_PACKAGE);
             const passed = result.packageName === SANITY_PACKAGE && result.working === true;
 
             if (passed) {
@@ -186,62 +277,22 @@ jobs:
               console.error(JSON.stringify(result, null, 2));
             }
 
-            return passed;
+            return { passed, result };
           }
 
           async function createVerifiedBrowser(workerId) {
-            for (let attempt = 1; attempt <= RETRIES; attempt++) {
-              const browser = await launchBrowser();
-              const passed = await runSanityCheck(browser, `worker ${workerId}, browser attempt ${attempt}`);
+            const browser = await launchBrowser();
+            const sanity = await runSanityCheck(browser, `worker ${workerId}, initial browser`);
 
-              if (passed) {
-                return browser;
-              }
-
+            if (!sanity.passed) {
               await browser.close().catch(() => {});
+              throw new Error(
+                "ARCH.js test environment failed the known-good package in a fresh browser. " +
+                "The failure is shown above and package testing has been stopped."
+              );
             }
 
-            throw new Error(`Test environment failed the known-good package in ${RETRIES} completely fresh browsers.`);
-          }
-
-          async function testPackageReliably(workerId, packageName) {
-            for (let attempt = 1; attempt <= RETRIES; attempt++) {
-              let browser;
-
-              try {
-                // A completely new Chromium process is used for every package.
-                // This prevents browser-level state, connection pools, memory,
-                // caches, or leaked ARCH state from contaminating later results.
-                browser = await createVerifiedBrowser(workerId);
-
-                console.log(`[Worker ${workerId}] Testing ${packageName} (attempt ${attempt}/${RETRIES})`);
-                const result = await testPackageInBrowser(browser, packageName);
-
-                // The package result is only accepted if the fresh browser was
-                // known-good immediately before the package was tested.
-                if (result.packageName === packageName) {
-                  return result;
-                }
-
-                return makeTestResult(
-                  packageName,
-                  `Package name mismatch: expected "${packageName}", got "${result.packageName}"`
-                );
-              } catch (error) {
-                console.error(`[Worker ${workerId}] Environment failure while testing ${packageName}:`);
-                console.error(error);
-
-                if (attempt === RETRIES) {
-                  throw error;
-                }
-              } finally {
-                if (browser) {
-                  await browser.close().catch(() => {});
-                }
-              }
-            }
-
-            throw new Error(`Unreachable retry state for ${packageName}`);
+            return browser;
           }
 
           async function main() {
@@ -254,12 +305,18 @@ jobs:
 
             const working = [];
             const failures = [];
-            let nextIndex = 0;
             const resultsByIndex = new Map();
+            let nextIndex = 0;
 
             const server = http.createServer((req, res) => {
               try {
                 const url = new URL(req.url, "http://127.0.0.1:4173");
+
+                if (url.pathname === "/releases/latest.js") {
+                  res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
+                  res.end(latestRelease);
+                  return;
+                }
 
                 if (!url.pathname.startsWith("/test/")) {
                   res.writeHead(404);
@@ -273,8 +330,7 @@ jobs:
           <html>
           <head>
             <meta charset="UTF-8">
-            <base href="${ARCH_BASE}">
-            <script src="${ARCH_BASE}releases/latest.js"></script>
+            <script src="/releases/latest.js"></script>
           </head>
           <body>
             <script type="module">
@@ -321,49 +377,76 @@ jobs:
             });
 
             console.log("Local test server started.");
-            console.log(`Testing ${packages.length} packages with ${CONCURRENCY} isolated workers.`);
-            console.log("Every package receives a fresh Chromium process and a fresh ARCH sanity check.");
+            console.log(`Testing ${packages.length} packages with ${CONCURRENCY} workers.`);
+            console.log("ARCH release and modules are served from the checked-out repository.");
+            console.log("GitHub API module discovery is intercepted and never used by the browser.");
+            console.log(`Browser restart interval: ${PACKAGES_PER_BROWSER} packages.`);
 
             async function worker(workerId) {
-              while (true) {
-                const index = nextIndex++;
-                if (index >= packages.length) return;
+              let browser = null;
+              let sinceRestart = 0;
 
-                const packageName = packages[index];
-                console.log(`\n[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`);
+              try {
+                browser = await createVerifiedBrowser(workerId);
 
-                const result = await testPackageReliably(workerId, packageName);
-                resultsByIndex.set(index, result);
+                while (true) {
+                  if (sinceRestart >= PACKAGES_PER_BROWSER) {
+                    console.log(`[Worker ${workerId}] Restarting browser after ${sinceRestart} packages.`);
+                    await browser.close().catch(() => {});
+                    browser = await createVerifiedBrowser(workerId);
+                    sinceRestart = 0;
+                  }
 
-                if (result.working) {
-                  working.push(packageName);
-                  console.log(`[Worker ${workerId}] WORKS ${packageName}`);
-                  continue;
+                  const index = nextIndex++;
+                  if (index >= packages.length) return;
+
+                  const packageName = packages[index];
+                  console.log(`\n[Worker ${workerId}] ${index + 1}/${packages.length} ${packageName}`);
+
+                  const result = await testPackage(browser, packageName);
+                  resultsByIndex.set(index, result);
+                  sinceRestart++;
+
+                  if (result.working) {
+                    working.push(packageName);
+                    console.log(`[Worker ${workerId}] WORKS ${packageName}`);
+                  } else {
+                    const failureType = classifyFailure(result);
+
+                    if (failureType === "environment") {
+                      throw new Error(
+                        `ARCH environment failure while testing ${packageName}: ${result.error}`
+                      );
+                    }
+
+                    const failure = {
+                      package: packageName,
+                      type: failureType,
+                      error: result.error || "unknown error",
+                      consoleErrors: result.consoleErrors || [],
+                      pageErrors: result.pageErrors || [],
+                      failedRequests: result.failedRequests || []
+                    };
+
+                    failures.push(failure);
+
+                    console.log(`[Worker ${workerId}] FAIL ${packageName} [${failureType}]`);
+                    console.log(`[Worker ${workerId}] ERROR ${packageName}: ${failure.error}`);
+
+                    if (failure.consoleErrors.length) {
+                      console.log(`[Worker ${workerId}] HTTP/CONSOLE: ${JSON.stringify(failure.consoleErrors)}`);
+                    }
+                    if (failure.pageErrors.length) {
+                      console.log(`[Worker ${workerId}] PAGE ERRORS: ${JSON.stringify(failure.pageErrors)}`);
+                    }
+                    if (failure.failedRequests.length) {
+                      console.log(`[Worker ${workerId}] FAILED REQUESTS: ${JSON.stringify(failure.failedRequests)}`);
+                    }
+                  }
                 }
-
-                const failureType = classifyFailure(result);
-                const failure = {
-                  package: packageName,
-                  type: failureType,
-                  error: result.error || "unknown error",
-                  consoleErrors: result.consoleErrors || [],
-                  pageErrors: result.pageErrors || [],
-                  failedRequests: result.failedRequests || []
-                };
-
-                failures.push(failure);
-
-                console.log(`[Worker ${workerId}] FAIL ${packageName} [${failureType}]`);
-                console.log(`[Worker ${workerId}] ERROR ${packageName}: ${failure.error}`);
-
-                if (failure.consoleErrors.length) {
-                  console.log(`[Worker ${workerId}] HTTP/CONSOLE: ${JSON.stringify(failure.consoleErrors)}`);
-                }
-                if (failure.pageErrors.length) {
-                  console.log(`[Worker ${workerId}] PAGE ERRORS: ${JSON.stringify(failure.pageErrors)}`);
-                }
-                if (failure.failedRequests.length) {
-                  console.log(`[Worker ${workerId}] FAILED REQUESTS: ${JSON.stringify(failure.failedRequests)}`);
+              } finally {
+                if (browser) {
+                  await browser.close().catch(() => {});
                 }
               }
             }
@@ -400,7 +483,7 @@ jobs:
             fs.writeFileSync(
               "results.json",
               JSON.stringify({
-                version: 2,
+                version: 3,
                 packagetestedindex: newOffset,
                 tested_count: orderedResults.length,
                 working,
