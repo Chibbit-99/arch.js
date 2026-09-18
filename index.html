@@ -1,292 +1,724 @@
-<html lang="en" class="dark"><head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ARCH.js</title>
-<meta name="description" content="ARCH.js is a browser-side JavaScript runtime and package loader. What if the browser could do more?">
-<link rel="icon" type="image/png" href="./logo.png">
-<style>
-html{scroll-behavior:smooth}
-*{box-sizing:border-box}
-body{margin:0;background:#14120F;color:#C9BFB2;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6}
-main,nav,footer{position:relative;z-index:1}
-a{color:inherit;text-decoration:none}
-.container{width:min(1152px,calc(100% - 40px));margin:auto}
-.nav{position:sticky;top:0;z-index:10;background:rgba(20,18,15,.94);backdrop-filter:blur(12px);border-bottom:1px solid rgba(241,235,227,.09)}
-.nav-inner{height:64px;display:flex;align-items:center;justify-content:space-between;gap:24px}
-.brand{display:flex;align-items:center;gap:10px;color:#F1EBE3}.brand img{width:30px;height:30px}.brand span{font-size:18px}
-.nav-links{display:flex;gap:28px;color:#C9BFB2;font-size:15px}.nav-links a:hover{color:#C6613F}
-.hero{padding:92px 20px 88px;width:100%;text-align:center;background:linear-gradient(rgba(20,18,15,.48),rgba(20,18,15,.62)),url("./resources/background.png") center/cover no-repeat}.hero img{width:72px;height:66px;object-fit:contain;margin-bottom:18px}.hero h1,.hero h2,.hero h3,.hero p{margin-top:0}.hero h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(48px,7vw,68px);line-height:1;font-weight:600;color:#F1EBE3;margin-bottom:14px}.hero .tagline{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:clamp(22px,3.5vw,30px);color:#C9BFB2;max-width:620px;margin:0 auto 30px}.buttons{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}.button{padding:12px 24px;border-radius:5px;font-weight:600;font-size:16px;border:1px solid rgba(241,235,227,.12);transition:background .15s,border-color .15s,color .15s}.button.primary{background:#C6613F;color:#14120F}.button.primary:hover{background:#D16E49}.button.secondary{color:#C9BFB2;background:transparent}.button.secondary:hover{border-color:rgba(198,97,63,.5);background:#211D19;color:#F1EBE3}
-.rule{height:1px;background:rgba(241,235,227,.09)}
-.section{padding:84px 20px}.section-head{text-align:left;max-width:760px;margin:0 auto 44px}.section-head h2{font-family:Georgia,"Times New Roman",serif;font-size:clamp(36px,5vw,50px);line-height:1.08;color:#F1EBE3;margin:0 0 18px}.section-head p{font-size:18px;margin:0}
-.showcase{display:grid;grid-template-columns:1fr 1fr;background:#211D19;border:1px solid rgba(241,235,227,.09);border-radius:12px 12px 12px 3px;overflow:hidden}
-.code-side{min-width:0;background:#181613;border-right:1px solid rgba(241,235,227,.09)}
-.panel-head{height:42px;padding:0 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(241,235,227,.09);color:#8F8477;font-size:12px;letter-spacing:.04em}
-.code-window{height:700px;overflow:auto;padding:22px}.code-window pre{margin:0;font:13px/1.65 "SFMono-Regular",Consolas,Menlo,monospace;color:#C9BFB2;white-space:pre}.code-window .tag{color:#7FB8C4}.code-window .str{color:#9CBF8A}.code-window .kw{color:#D08CD1}.code-window .prop{color:#D8A857}.code-window .num{color:#E3B08C}
-.demo-side{min-width:0;display:flex;flex-direction:column;background:#1B1815}.demo-frame-wrap{flex:1;min-height:700px;padding:18px}.demo-frame{width:100%;height:100%;min-height:664px;border:1px solid rgba(241,235,227,.09);border-radius:8px;background:#000;display:block}.demo-caption{padding:0 22px 22px;color:#8F8477;font-size:13px}.demo-caption strong{color:#F1EBE3;font-weight:600}
-.copy-hint{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:#8F8477;font-size:13px}.copy-hint code{color:#E3B08C;background:rgba(246,238,229,.06);border:1px solid rgba(246,238,229,.08);border-radius:4px;padding:1px 6px;font-family:monospace}
-.twocol{display:grid;grid-template-columns:1fr 1fr;gap:56px}.twocol>div{border-right:1px solid rgba(241,235,227,.09);padding-right:28px}.twocol>div:last-child{border:0;padding:0}.twocol h3{font-family:Georgia,"Times New Roman",serif;font-size:30px;color:#F1EBE3;margin:0 0 16px}.twocol p{font-size:16px;margin:0}
-.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.card{border:1px solid rgba(241,235,227,.09);border-radius:7px;padding:22px;background:#1B1815}.card h3{font-family:Georgia,"Times New Roman",serif;color:#F1EBE3;margin:0 0 8px;font-size:22px}.card p{margin:0;color:#8F8477;font-size:14px}
-.closing-bar{padding:34px 20px;background:#181613}.closing-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}.closing-inner p{margin:0;color:#8F8477;font-size:14px}.closing-links{display:flex;align-items:center;gap:12px;font-size:14px}.closing-links a:hover{color:#C6613F}.closing-links span{color:#4A443C}
-footer{border-top:1px solid rgba(241,235,227,.09);padding:56px 20px}.footer-grid{display:grid;grid-template-columns:2fr repeat(3,1fr);gap:42px}.footer-title{font-weight:600;color:#F1EBE3;margin-bottom:12px}.footer-grid a{display:block;color:#C9BFB2;font-size:14px;margin:7px 0}.footer-grid a:hover{color:#C6613F}.footer-note{font-size:12px;color:#8F8477}
-.package-demo [hidden]{display:none!important}.package-demo{background:#211D19;border:1px solid rgba(241,235,227,.09);border-radius:12px 12px 12px 3px;overflow:hidden}.package-bar{display:flex;gap:10px;padding:16px;border-bottom:1px solid rgba(241,235,227,.09);background:#181613}.package-input{flex:1;min-width:0;background:#14120F;border:1px solid rgba(241,235,227,.12);border-radius:5px;padding:11px 13px;color:#F1EBE3;font:15px "SFMono-Regular",Consolas,monospace;outline:none}.package-input:focus{border-color:rgba(198,97,63,.65)}.package-grid{display:grid;grid-template-columns:1fr 1fr}.terminal-panel,.compiled-panel{min-width:0;background:#161412}.terminal-panel{border-right:1px solid rgba(241,235,227,.09)}.terminal{height:270px;overflow:auto;margin:0;padding:18px;color:#C9BFB2;font:12px/1.65 "SFMono-Regular",Consolas,monospace;white-space:pre-wrap}.compiled-panel{background:#1B1815}.compiled-output{display:block;width:100%;height:270px;resize:none;border:0;outline:0;background:transparent;color:#C9BFB2;padding:18px;font:12px/1.55 "SFMono-Regular",Consolas,monospace}.compiled-empty{height:270px;display:flex;align-items:center;justify-content:center;padding:30px;text-align:center;color:#8F8477;font-size:14px}.compiled-actions{display:flex;justify-content:flex-end;gap:10px;padding:12px 16px 16px;border-top:1px solid rgba(241,235,227,.09);background:#181613}.package-demo .button{padding:9px 15px;font-size:14px}.package-demo .button.secondary{color:#C9BFB2;background:#211D19;border-color:rgba(241,235,227,.12)}.package-demo .button.secondary:hover{color:#F1EBE3;background:#2A2520;border-color:rgba(198,97,63,.5)}
-@media(max-width:900px){.nav-links{display:none}.showcase{grid-template-columns:1fr}.code-side{border-right:0;border-bottom:1px solid rgba(241,235,227,.09)}.code-window{height:540px}.demo-frame-wrap{min-height:420px}.demo-frame{min-height:376px}.twocol{grid-template-columns:1fr}.twocol>div{border-right:0;border-bottom:1px solid rgba(241,235,227,.09);padding:0 0 28px}.cards{grid-template-columns:1fr}.footer-grid{grid-template-columns:1fr 1fr}.package-grid{grid-template-columns:1fr}.terminal-panel{border-right:0;border-bottom:1px solid rgba(241,235,227,.09)}}
-@media(max-width:560px){.container{width:min(100% - 28px,1152px)}.hero{padding:76px 14px 72px}.section{padding:82px 14px}.showcase{border-radius:10px 10px 10px 2px}.code-window{padding:16px;height:470px}.code-window pre{font-size:11px}.demo-frame-wrap{padding:14px}.demo-frame{min-height:320px}.footer-grid{grid-template-columns:1fr}.package-bar{flex-direction:column}.package-bar .button{width:100%}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARCH.js</title>
+    <meta name="description" content="ARCH.js is a browser-side runtime and package loader for modern JavaScript projects.">
+    <link rel="icon" type="image/png" href="/logo.png">
 
-.code-window,.terminal,.compiled-output{scrollbar-width:thin;scrollbar-color:rgba(198,97,63,.55) rgba(20,18,15,.5)}
-.code-window::-webkit-scrollbar,.terminal::-webkit-scrollbar,.compiled-output::-webkit-scrollbar{width:9px;height:9px}
-.code-window::-webkit-scrollbar-track,.terminal::-webkit-scrollbar-track,.compiled-output::-webkit-scrollbar-track{background:rgba(20,18,15,.5)}
-.code-window::-webkit-scrollbar-thumb,.terminal::-webkit-scrollbar-thumb,.compiled-output::-webkit-scrollbar-thumb{background:rgba(198,97,63,.45);border:2px solid rgba(20,18,15,.5);border-radius:999px}
-.code-window::-webkit-scrollbar-thumb:hover,.terminal::-webkit-scrollbar-thumb:hover,.compiled-output::-webkit-scrollbar-thumb:hover{background:rgba(198,97,63,.7)}
-</style>
+    <style>
+        :root {
+            --background: #0b0f14;
+            --surface: #111820;
+            --line: #27313b;
+            --text: #eef2f6;
+            --muted: #9aa7b4;
+            --subtle: #667585;
+            --content-width: 1080px;
+            --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            background: var(--background);
+            color: var(--text);
+            font-family: var(--sans);
+            line-height: 1.55;
+            -webkit-font-smoothing: antialiased;
+        }
+        a { color: inherit; text-decoration: none; }
+        button { font-family: inherit; }
+
+        .container {
+            width: min(var(--content-width), calc(100% - 40px));
+            margin: 0 auto;
+        }
+
+        header { border-bottom: 0; }
+        nav {
+            height: 68px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+        .logo-image {
+            width: 27px;
+            height: 27px;
+            object-fit: contain;
+            display: block;
+        }
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 26px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+        .nav-links a:hover { color: var(--text); }
+
+        .hero {
+            padding: 56px 0 24px;
+            border-bottom: 0;
+        }
+
+        .hero > .container {
+            width: min(var(--content-width), calc(100% - 40px));
+            margin-inline: auto;
+        }
+        h1 {
+            max-width: 850px;
+            margin: 0;
+            font-size: clamp(31px, 3.9vw, 46px);
+            line-height: 0.98;
+            letter-spacing: -0.065em;
+            font-weight: 650;
+        }
+        .hero {
+            text-align: left;
+        }
+
+        .hero-description {
+            max-width: 700px;
+            margin: 14px 0 0;
+            color: var(--muted);
+            font-size: 18px;
+            line-height: 1.65;
+        }
+        .hero-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 18px;
+        }
+        .button {
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 16px;
+            border: 0;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: transform 200ms ease, background 200ms ease, box-shadow 200ms ease;
+        }
+        .button.primary {
+            position: relative;
+            overflow: hidden;
+            background: #fff;
+            color: #121213;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.18);
+        }
+        .button.primary::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(238,238,240,0.98));
+        }
+        .button.primary span { position: relative; z-index: 1; }
+        .button.primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 18px rgba(255,255,255,0.08);
+        }
+        .button.primary:active { transform: scale(0.95); }
+
+        .github-button {
+            position: relative;
+            height: 40px;
+            padding: 0 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: calc(0.08 * 1rem) solid transparent;
+            border-radius: 6px;
+            background:
+                linear-gradient(#121213, #121213),
+                linear-gradient(#121213 50%, rgba(18,18,19,0.6) 80%, rgba(18,18,19,0)),
+                linear-gradient(90deg, hsl(0,100%,63%), hsl(90,100%,63%), hsl(210,100%,63%), hsl(195,100%,63%), hsl(270,100%,63%));
+            background-size: auto, auto, 200%;
+            background-clip: padding-box, border-box, border-box;
+            background-origin: border-box;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            animation: rainbow 3s linear infinite;
+            transition: transform 200ms ease, filter 200ms ease;
+        }
+        .github-button::before {
+            content: "";
+            position: absolute;
+            bottom: -20%;
+            left: 50%;
+            z-index: 0;
+            width: 60%;
+            height: 20%;
+            transform: translateX(-50%);
+            background: linear-gradient(90deg, hsl(0,100%,63%), hsl(90,100%,63%), hsl(210,100%,63%), hsl(195,100%,63%), hsl(270,100%,63%));
+            background-size: 200%;
+            filter: blur(0.8rem);
+            animation: rainbow 3s linear infinite;
+        }
+        .github-button:hover { transform: scale(1.05); }
+        .github-button:active { transform: scale(0.95); }
+        .github-button > div { position: relative; z-index: 1; display: flex; align-items: center; }
+        .github-button svg { width: 16px; height: 16px; }
+        .github-button span { margin-left: 4px; padding: 4px; color: #fff; }
+        @keyframes rainbow {
+            from { background-position: 0% 50%; }
+            to { background-position: 200% 50%; }
+        }
+
+        .hero-code {
+            width: 100%;
+            margin-top: 24px;
+        }
+
+        .code-editor {
+            width: min(820px, 100%);
+            margin: 0;
+            background-color: #1d1e22;
+            box-shadow: 0px 4px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 2px;
+        }
+
+        .code-editor .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 10px;
+        }
+
+        .code-editor .title {
+            font-family: Lato, var(--sans);
+            font-weight: 900;
+            font-size: 14px;
+            letter-spacing: 1.57px;
+            color: rgb(212 212 212);
+        }
+
+        .code-editor .icon {
+            width: 20px;
+            height: 20px;
+            transition: .2s ease;
+            cursor: pointer;
+        }
+
+        .code-editor .icon:hover {
+            border-radius: 50px;
+            background-color: #6e7281;
+        }
+
+        .editor-content {
+            margin: 0 10px 10px;
+            color: white;
+            overflow-x: auto;
+        }
+
+        .code {
+            display: block;
+            min-width: max-content;
+            font-family: var(--mono);
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        .code p {
+            margin: 0;
+        }
+
+        .property {
+            margin-left: 30px;
+        }
+
+        .property:hover {
+            cursor: text;
+        }
+
+        .editor-content .color-0 {
+            color: rgb(86 156 214);
+        }
+
+        .editor-content .color-1 {
+            color: rgb(182 206 168);
+        }
+
+        .editor-content .color-2 {
+            color: rgb(156 220 254);
+        }
+
+        .editor-content .color-3 {
+            color: rgb(207 146 120);
+        }
+
+        .color-preview-1, .color-preview-2 {
+            height: 8px;
+            width: 8px;
+            border: 1px solid #fff;
+            display: inline-block;
+            margin-right: 3px;
+        }
+
+        .color-preview-1 {
+            background-color: #1d1e22;
+        }
+
+        .color-preview-2 {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        section { border-bottom: 1px solid var(--line); }
+        .section-inner { padding: 90px 0; }
+        h2 {
+            max-width: 720px;
+            margin: 0;
+            font-size: clamp(22px, 2.4vw, 27px);
+            line-height: 1.05;
+            letter-spacing: -0.045em;
+            font-weight: 620;
+        }
+        .section-intro {
+            max-width: 650px;
+            margin: 12px 0 0;
+            color: var(--muted);
+            font-size: 16px;
+            line-height: 1.7;
+        }
+
+
+        .info-card {
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #111214;
+        }
+
+        .info-tabs {
+            padding: 10px 10px 0;
+            background: #0d0e10;
+        }
+
+        .radio-inputs {
+            position: relative;
+            display: flex;
+            flex-wrap: wrap;
+            border-radius: 0.5rem;
+            background-color: #18191c;
+            box-sizing: border-box;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05);
+            padding: 0.25rem;
+            width: min(100%, 430px);
+            font-size: 13px;
+        }
+
+        .radio-inputs .radio {
+            flex: 1 1 auto;
+            text-align: center;
+        }
+
+        .radio-inputs .radio input {
+            display: none;
+        }
+
+        .radio-inputs .radio .name {
+            display: flex;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            border: none;
+            padding: .5rem 0;
+            color: #8d9098;
+            transition: all .15s ease-in-out;
+        }
+
+        .radio-inputs .radio .name:hover {
+            color: #d7d7da;
+        }
+
+        .radio-inputs .radio input:checked + .name {
+            background-color: #fff;
+            color: #16171a;
+            font-weight: 600;
+        }
+
+        .info-panels { padding: 34px 38px 38px; }
+
+        .info-panel[hidden] { display: none; }
+
+        .info-panel h2 {
+            max-width: 760px;
+            margin: 0;
+            font-size: clamp(21px, 2.2vw, 24px);
+            line-height: 1.1;
+        }
+
+        .info-panel p {
+            max-width: 760px;
+            margin: 12px 0 0;
+            color: var(--muted);
+            font-size: 16px;
+            line-height: 1.7;
+        }
+
+        .steps {
+            margin-top: 26px;
+        }
+        .step {
+            display: grid;
+            grid-template-columns: 190px 1fr;
+            gap: 25px;
+            padding: 25px 0;
+            border-bottom: 1px solid var(--line);
+        }
+        .step-title { font-weight: 620; }
+        .step-description { max-width: 570px; color: var(--muted); font-size: 15px; }
+        code { font-family: var(--mono); font-size: 0.9em; }
+
+        .compatibility {
+            margin-top: 26px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+        }
+        .compatibility-item {
+            min-height: 104px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border: 1px solid var(--line);
+        }
+        .compatibility-brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+        }
+        .compatibility-icon {
+            width: 28px;
+            height: 28px;
+            object-fit: contain;
+            flex: 0 0 auto;
+            filter: brightness(0) invert(1);
+            opacity: 0.9;
+        }
+        .compatibility-name { font-family: var(--mono); font-size: 13px; }
+        .compatibility-status { font-size: 12px; }
+        .status-supported { color: #f0c94b; }
+        .status-development { color: #ff6262; }
+
+        .faq {
+            margin-top: 50px;
+        }
+        details { border-bottom: 0; }
+        summary {
+            padding: 22px 0;
+            cursor: pointer;
+            list-style: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        summary::-webkit-details-marker { display: none; }
+        summary::after {
+            content: "+";
+            float: right;
+            color: var(--subtle);
+            font-family: var(--mono);
+            font-weight: 400;
+        }
+        details[open] summary::after { content: "−"; }
+        .faq-answer {
+            max-width: 700px;
+            padding: 0 0 24px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        footer { padding: 35px 0; }
+        .footer-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: var(--subtle);
+            font-size: 12px;
+        }
+        .footer-links { display: flex; gap: 20px; }
+        .footer-links a:hover { color: var(--text); }
+
+        /* Keep the hero aligned to the same container as the rest of the page. */
+        .hero {
+            max-width: none;
+        }
+
+        .info-card {
+            background: #0f141a;
+            border-color: #27313b;
+        }
+
+        .compatibility-item {
+            background: transparent;
+        }
+
+        .faq-answer {
+            max-width: 760px;
+        }
+
+        /* Compact page layout */
+        section { border-bottom: 0; }
+        .hero { padding: 54px 0 18px; border-bottom: 0; }
+        .hero-code { margin-top: 18px; }
+        .section-inner { padding: 28px 0; }
+        .steps { margin-top: 18px; }
+        .step { padding: 15px 0; }
+        .compatibility { margin-top: 18px; }
+        .faq { margin-top: 24px; }
+        summary { padding: 15px 0; }
+        footer { padding: 20px 0; }
+
+        @media (max-width: 700px) {
+            .container { width: min(var(--content-width), calc(100% - 28px)); }
+            nav { height: 60px; }
+            .nav-links { gap: 15px; }
+            .nav-links a:nth-child(1), .nav-links a:nth-child(2) { display: none; }
+            .hero { padding: 42px 0 16px; }
+            h1 { font-size: clamp(32px, 8.5vw, 42px); }
+            .hero-description { font-size: 16px; }
+            .hero-actions { align-items: flex-start; flex-direction: column; }
+            .hero-code { margin-top: 16px; }
+            .section-inner { padding: 22px 0; }
+            .info-panels { padding: 28px 24px; }
+            .info-tabs { overflow-x: auto; }
+            .step { grid-template-columns: 1fr; gap: 8px; }
+            .step-description { grid-column: auto; }
+            .compatibility { grid-template-columns: repeat(2, 1fr); }
+            .footer-inner { align-items: flex-start; flex-direction: column; gap: 15px; }
+        }
+    </style>
 </head>
-<body spellcheck="true" contenteditable="false">
-<nav class="nav"><div class="container nav-inner"><a class="brand" href="./"><img src="./logo.png" alt="ARCH.js"><span>ARCH.js</span></a><div class="nav-links"><a href="./docs/">Docs</a><a href="./docs/#api">Reference</a><a href="./demo/">Examples</a><a href="https://github.com/Chibbit-99/arch.js">GitHub</a></div></div></nav>
+<body>
+<header>
+    <div class="container">
+        <nav>
+            <a class="logo" href="/">
+                <img class="logo-image" src="/logo.png" alt="ARCH.js logo">
+                <span>ARCH.js</span>
+            </a>
+            <div class="nav-links">
+                <a href="#quickstart">Quickstart</a>
+                <a href="/arch.js/docs/">Docs</a>
+                <a href="#faq">FAQ</a>
+                <a href="https://github.com/Chibbit-99/arch.js" target="_blank" rel="noopener noreferrer">GitHub</a>
+            </div>
+        </nav>
+    </div>
+</header>
+
 <main>
-<header class="hero"><img src="./logo.png" alt="ARCH.js"><h1>ARCH.js</h1><p class="tagline">What if the browser could do more?</p><div class="buttons"><a class="button primary" href="#package-playground">See it load a package</a><a class="button secondary" href="./docs/">Read the docs</a></div></header>
-<div class="container"><div class="rule"></div></div>
-<section class="section"><div class="section-head"><h2>The framework that brings npm to the browser</h2><p>ARCH.js gives browser applications a runtime layer for loading and using JavaScript packages directly in the browser.</p></div>
-<div class="container">
-<div class="showcase">
-<div class="code-side"><div class="panel-head"><span>index.html</span></div><div class="code-window"><pre><span class="tag">&lt;script src="https://chibbit-99.github.io/arch.js/releases/latest.js"&gt;&lt;/script&gt;</span>
+    <section class="hero">
+        <div class="container">
+            <h1>A browser runtime and package loader.</h1>
+            <p class="hero-description">
+                A small, experimental project for running more of the JavaScript ecosystem directly in the browser.
+                It is still being built, so expect rough edges and breaking changes.
+            </p>
+            <div class="hero-actions">
+                <a class="button primary" href="/arch.js/docs/"><span>Get started</span></a>
+                <a href="https://github.com/Chibbit-99/arch.js" target="_blank" rel="noopener noreferrer">
+                    <button class="github-button">
+                        <div>
+                            <svg viewBox="0 0 438.549 438.549" aria-hidden="true">
+                                <path d="M409.132 114.573c-19.608-33.596-46.205-60.194-79.798-79.8-33.598-19.607-70.277-29.408-110.063-29.408-39.781 0-76.472 9.804-110.063 29.408-33.596 19.605-60.192 46.204-79.8 79.8C9.803 148.168 0 184.854 0 224.63c0 47.78 13.94 90.745 41.827 128.906 27.884 38.164 63.906 64.572 108.063 79.227 5.14.954 8.945.283 11.419-1.996 2.475-2.282 3.711-5.14 3.711-8.562 0-.571-.049-5.708-.144-15.417a2549.81 2549.81 0 01-.144-25.406l-6.567 1.136c-4.187.767-9.469 1.092-15.846 1-6.374-.089-12.991-.757-19.842-1.999-6.854-1.231-13.229-4.086-19.13-8.559-5.898-4.473-10.085-10.328-12.56-17.556l-2.855-6.57c-1.903-4.374-4.899-9.233-8.992-14.559-4.093-5.331-8.232-8.945-12.419-10.848l-1.999-1.431c-1.332-.951-2.568-2.098-3.711-3.429-1.142-1.331-1.997-2.663-2.568-3.997-.572-1.335-.098-2.43 1.427-3.289 1.525-.859 4.281-1.276 8.28-1.276l5.708.853c3.807.763 8.516 3.042 14.133 6.851 5.614 3.806 10.229 8.754 13.846 14.842 4.38 7.806 9.657 13.754 15.846 17.847 6.184 4.093 12.419 6.136 18.699 6.136 6.28 0 11.704-.476 16.274-1.423 4.565-.952 8.848-2.383 12.847-4.285 1.713-12.758 6.377-22.559 13.988-29.41-10.848-1.14-20.601-2.857-29.264-5.14-8.658-2.286-17.605-5.996-26.835-11.14-9.235-5.137-16.896-11.516-22.985-19.126-6.09-7.614-11.088-17.61-14.987-29.979-3.901-12.374-5.852-26.648-5.852-42.826 0-23.035 7.52-42.637 22.557-58.817-7.044-17.318-6.379-36.732 1.997-58.24 5.52-1.715 13.706-.428 24.554 3.853 10.85 4.283 18.794 7.952 23.84 10.994 5.046 3.041 9.089 5.618 12.135 7.708 17.705-4.947 35.976-7.421 54.818-7.421s37.117 2.474 54.823 7.421l10.849-6.849c7.419-4.57 16.18-8.758 26.262-12.565 10.088-3.805 17.802-4.853 23.134-3.138 8.562 21.509 9.325 40.922 2.279 58.24 15.036 16.18 22.559 35.787 22.559 58.817 0 16.178-1.958 30.497-5.853 42.966-3.9 12.471-8.941 22.457-15.125 29.979-6.191 7.521-13.901 13.85-23.131 18.986-9.232 5.14-18.182 8.85-26.84 11.136-8.662 2.286-18.415 4.004-29.263 5.146 9.894 8.562 14.842 22.077 14.842 40.539v60.237c0 3.422 1.19 6.279 3.572 8.562 2.379 2.279 6.136 2.95 11.276 1.995 44.163-14.653 80.185-41.062 108.068-79.226 27.88-38.161 41.825-81.126 41.825-128.906-.01-39.771-9.818-76.454-29.414-110.049z" fill="#fff"></path>
+                            </svg>
+                            <span>Star on GitHub</span>
+                        </div>
+                    </button>
+                </a>
+            </div>
 
-<span class="tag">&lt;script type="module"&gt;</span>
-    <span class="kw">const</span> THREE = <span class="kw">await</span> importPackage(<span class="str">"three"</span>);
-    
-    console.log(<span class="str">"=== ARCH Minecraft Scene ==="</span>);
+            <div class="hero-code">
+            <div class="code-editor">
+                <div class="header">
+                    <span class="title">ARCH.js</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="icon" id="copyButton" role="button" tabindex="0" aria-label="Copy code">
+                        <g stroke-width="0" id="SVGRepo_bgCarrier"></g>
+                        <g stroke-linejoin="round" stroke-linecap="round" id="SVGRepo_tracerCarrier"></g>
+                        <g id="SVGRepo_iconCarrier">
+                            <path stroke-linecap="round" stroke-width="2" stroke="#4C4F5A" d="M6 6L18 18"></path>
+                            <path stroke-linecap="round" stroke-width="2" stroke="#4C4F5A" d="M18 6L6 18"></path>
+                        </g>
+                    </svg>
+                </div>
+                <div class="editor-content">
+                    <code class="code">
+                        <p><span class="color-0">&lt;script</span> <span class="color-2">src</span><span>="</span><span class="color-1">https://chibbit-99.github.io/arch.js/releases/latest.js</span><span>"&gt;&lt;/script&gt;</span></p>
+                        <p class="property"><span class="color-0">&lt;script</span> <span class="color-2">type</span><span>="</span><span class="color-1">module</span><span>"&gt;</span></p>
+                        <p class="property"><span class="color-2">const</span><span> THREE = </span><span class="color-0">await</span><span> importPackage(</span><span class="color-1">"three"</span><span>);</span></p>
+                        <p class="property"><span class="color-0">&lt;/script&gt;</span></p>
+                    </code>
+                </div>
+            </div>
+            </div>
+        </div>
+    </section>
 
-    document.body.innerHTML = <span class="str">""</span>;
-    document.body.style.margin = <span class="str">"0"</span>;
-    document.body.style.overflow = <span class="str">"hidden"</span>;
-    
-    <span class="kw">const</span> scene = <span class="kw">new</span> THREE.Scene();
-    scene.background = <span class="kw">new</span> THREE.Color(<span class="num">0x87ceeb</span>);
-    
-    <span class="kw">const</span> camera = <span class="kw">new</span> THREE.PerspectiveCamera(<span class="num">70</span>, window.innerWidth / window.innerHeight, <span class="num">0.1</span>, <span class="num">1000</span>);
-    camera.position.set(<span class="num">12</span>, <span class="num">10</span>, <span class="num">18</span>);
-    camera.lookAt(<span class="num">0</span>, <span class="num">3</span>, <span class="num">0</span>);
-    
-    <span class="kw">const</span> renderer = <span class="kw">new</span> THREE.WebGLRenderer({ antialias: <span class="kw">false</span> });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, <span class="num">2</span>));
-    document.body.appendChild(renderer.domElement);
-    
-    <span class="kw">const</span> ambient = <span class="kw">new</span> THREE.AmbientLight(<span class="num">0xffffff</span>, <span class="num">1.5</span>);
-    scene.add(ambient);
-    
-    <span class="kw">const</span> sun = <span class="kw">new</span> THREE.DirectionalLight(<span class="num">0xffffff</span>, <span class="num">3</span>);
-    sun.position.set(<span class="num">30</span>, <span class="num">50</span>, <span class="num">20</span>);
-    scene.add(sun);
-    
-    <span class="kw">const</span> materials = {
-        grass: <span class="kw">new</span> THREE.MeshLambertMaterial({ color: <span class="num">0x55aa33</span> }),
-        dirt: <span class="kw">new</span> THREE.MeshLambertMaterial({ color: <span class="num">0x8b5a2b</span> }),
-        stone: <span class="kw">new</span> THREE.MeshLambertMaterial({ color: <span class="num">0x888888</span> }),
-        wood: <span class="kw">new</span> THREE.MeshLambertMaterial({ color: <span class="num">0x8b5a2b</span> }),
-        leaves: <span class="kw">new</span> THREE.MeshLambertMaterial({ color: <span class="num">0x228822</span> }),
-        sand: <span class="kw">new</span> THREE.MeshLambertMaterial({ color: <span class="num">0xd8c27a</span> }),
-        water: <span class="kw">new</span> THREE.MeshLambertMaterial({ color: <span class="num">0x3399dd</span>, transparent: <span class="kw">true</span>, opacity: <span class="num">0.75</span> })
-    };
-    
-    <span class="kw">const</span> blockGeometry = <span class="kw">new</span> THREE.BoxGeometry(<span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>);
-    
-    <span class="kw">function</span> block(x, y, z, material) {
-        <span class="kw">const</span> mesh = <span class="kw">new</span> THREE.Mesh(blockGeometry, material);
-        mesh.position.set(x, y, z);
-        scene.add(mesh);
-        <span class="kw">return</span> mesh;
-    }
-    
-    <span class="kw">const</span> SIZE = <span class="num">20</span>;
-    
-    <span class="kw">function</span> terrainHeight(x, z) {
-        <span class="kw">return</span> Math.floor(<span class="num">2</span> + Math.sin(x * <span class="num">0.35</span>) * <span class="num">1.2</span> + Math.cos(z * <span class="num">0.3</span>) * <span class="num">1.2</span> + Math.sin((x + z) * <span class="num">0.2</span>));
-    }
-    
-    <span class="kw">for</span> (<span class="kw">let</span> x = -SIZE; x &lt;= SIZE; x++) {
-        <span class="kw">for</span> (<span class="kw">let</span> z = -SIZE; z &lt;= SIZE; z++) {
-            <span class="kw">const</span> height = terrainHeight(x, z);
-    
-            <span class="kw">for</span> (<span class="kw">let</span> y = <span class="num">0</span>; y &lt;= height; y++) {
-                <span class="kw">let</span> material;
-    
-                <span class="kw">if</span> (y === height) {
-                    material = materials.grass;
-                } <span class="kw">else if</span> (y &gt;= height - <span class="num">2</span>) {
-                    material = materials.dirt;
-                } <span class="kw">else</span> {
-                    material = materials.stone;
-                }
-    
-                block(x, y, z, material);
-            }
-        }
-    }
-    
-    <span class="kw">function</span> tree(x, z) {
-        <span class="kw">const</span> ground = terrainHeight(x, z);
-    
-        <span class="kw">for</span> (<span class="kw">let</span> y = <span class="num">1</span>; y &lt;= <span class="num">4</span>; y++) {
-            block(x, ground + y, z, materials.wood);
-        }
-    
-        <span class="kw">for</span> (<span class="kw">let</span> dx = -<span class="num">2</span>; dx &lt;= <span class="num">2</span>; dx++) {
-            <span class="kw">for</span> (<span class="kw">let</span> dz = -<span class="num">2</span>; dz &lt;= <span class="num">2</span>; dz++) {
-                <span class="kw">for</span> (<span class="kw">let</span> dy = <span class="num">3</span>; dy &lt;= <span class="num">5</span>; dy++) {
-                    <span class="kw">if</span> (Math.abs(dx) + Math.abs(dz) + Math.abs(dy - <span class="num">4</span>) &lt;= <span class="num">3</span>) {
-                        block(x + dx, ground + dy, z + dz, materials.leaves);
-                    }
-                }
-            }
-        }
-    }
-    
-    tree(-<span class="num">7</span>, -<span class="num">5</span>);
-    tree(<span class="num">5</span>, -<span class="num">8</span>);
-    tree(<span class="num">9</span>, <span class="num">5</span>);
-    tree(-<span class="num">12</span>, <span class="num">8</span>);
-    tree(<span class="num">2</span>, <span class="num">9</span>);
-    
-    <span class="kw">for</span> (<span class="kw">let</span> x = -<span class="num">5</span>; x &lt;= <span class="num">3</span>; x++) {
-        <span class="kw">for</span> (<span class="kw">let</span> z = <span class="num">5</span>; z &lt;= <span class="num">11</span>; z++) {
-            <span class="kw">const</span> height = terrainHeight(x, z);
-    
-            <span class="kw">if</span> (height &lt;= <span class="num">3</span>) {
-                block(x, height + <span class="num">1</span>, z, materials.water);
-            }
-        }
-    }
-    
-    <span class="kw">const</span> cloudMaterial = <span class="kw">new</span> THREE.MeshBasicMaterial({ color: <span class="num">0xffffff</span> });
-    
-    <span class="kw">function</span> cloud(x, y, z) {
-        <span class="kw">for</span> (<span class="kw">let</span> i = <span class="num">0</span>; i &lt; <span class="num">5</span>; i++) {
-            <span class="kw">const</span> cloudBlock = <span class="kw">new</span> THREE.Mesh(blockGeometry, cloudMaterial);
-            cloudBlock.position.set(x + i * <span class="num">1.5</span>, y, z);
-            cloudBlock.scale.set(<span class="num">2</span>, <span class="num">0.6</span>, <span class="num">1.2</span>);
-            scene.add(cloudBlock);
-        }
-    }
-    
-    cloud(-<span class="num">15</span>, <span class="num">15</span>, -<span class="num">10</span>);
-    cloud(<span class="num">5</span>, <span class="num">18</span>, -<span class="num">5</span>);
-    cloud(-<span class="num">5</span>, <span class="num">20</span>, <span class="num">10</span>);
-    
-    window.addEventListener(<span class="str">"resize"</span>, () =&gt; {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-    
-    <span class="kw">function</span> animate() {
-        requestAnimationFrame(animate);
-    
-        <span class="kw">const</span> t = performance.now() * <span class="num">0.00005</span>;
-    
-        camera.position.x = Math.cos(t) * <span class="num">25</span>;
-        camera.position.z = Math.sin(t) * <span class="num">25</span>;
-        camera.position.y = <span class="num">11</span>;
-    
-        camera.lookAt(<span class="num">0</span>, <span class="num">3</span>, <span class="num">0</span>);
-        renderer.render(scene, camera);
-    }
-    
-    animate();
-    
-    console.log(<span class="str">"✓ Terrain generated"</span>);
-    console.log(<span class="str">"✓ Trees generated"</span>);
-    console.log(<span class="str">"✓ Water generated"</span>);
-    console.log(<span class="str">"✓ Clouds generated"</span>);
-    console.log(<span class="str">"✓ Renderer running"</span>);
-    console.log(<span class="str">"=== Minecraft scene running ==="</span>);
-<span class="tag">&lt;/script&gt;</span></pre></div></div>
-<div class="demo-side"><div class="panel-head"><span>Live demo</span></div><div class="demo-frame-wrap"><iframe class="demo-frame" src="./demo/threejs/" title="ARCH.js Three.js Minecraft demo" loading="lazy"></iframe></div></div>
-</div>
-<div class="copy-hint"><span><br></span></div>
-</div></section>
-<div class="container"><div class="rule"></div></div>
-<section class="section" id="package-playground"><div class="section-head"><h2>Try it out</h2><p>Enter a package name and watch ARCH.js resolve, compile, and load it in real time.</p></div><div class="container"><div class="package-demo"><div class="package-bar"><input id="package-name" class="package-input" type="text" value="three" placeholder="npm package name" autocomplete="off" spellcheck="false"><button id="package-run" class="button primary" type="button">Install package</button></div><div class="package-grid"><div class="terminal-panel"><div class="panel-head"><span>ARCH.js output</span></div><pre id="package-logs" class="terminal"></pre></div><div class="compiled-panel"><div class="panel-head"><span>Compiled JavaScript</span></div><div class="compiled-empty" id="compiled-empty">Run a package to inspect the generated browser code.</div><textarea id="compiled-output" class="compiled-output" readonly="" hidden=""></textarea></div></div><div class="compiled-actions"><button id="compiled-copy" class="button secondary" type="button" hidden="">Copy compiled JS</button></div></div></div></section>
-<div class="container"><div class="rule"></div></div>
-<section class="section"><div class="section-head"><h2>How it works</h2><p>Three steps happen behind a single <code style="color:#E3B08C;background:rgba(246,238,229,.06);border:1px solid rgba(246,238,229,.08);border-radius:4px;padding:1px 6px;font-family:monospace;font-size:15px">importPackage()</code> call.</p></div><div class="container cards"><article class="card"><h3>1. Resolve</h3><p>Queries the npm registry for the package's latest tarball and reads its manifest to find the real entry point, instead of guessing.</p></article><article class="card"><h3>2. Bundle</h3><p>Pulls the package and its dependency tree, then bundles them into a single browser-safe script &mdash; CommonJS requires included.</p></article><article class="card"><h3>3. Expose</h3><p>Returns the module's exports directly from the await:</p><pre style="margin:10px 0 0;font:12px/1.5 monospace;color:#C9BFB2;white-space:pre-wrap">const THREE = await importPackage("three");</pre></article></div></section>
-<div class="container"><div class="rule"></div></div>
-<section class="section"><div class="section-head"><h2>No build step, no bundler config</h2><p>The Three.js scene above is real npm code &mdash; not a rewrite for the browser. It runs from a single script tag with zero webpack, Vite, or import maps.</p></div><div class="container twocol"><div><h3>Skip the toolchain</h3><p>Drop in <code style="color:#E3B08C">latest.js</code> and call <code style="color:#E3B08C">importPackage()</code>. There's no npm install, no bundler, and nothing to compile ahead of time.</p></div><div><h3>Compiled once, cached after</h3><p>The first import compiles the package to a browser-ready blob. ARCH.js caches it, so repeat imports of the same version skip recompilation.</p></div></div></section>
-<div class="container"><div class="rule"></div></div>
-<section class="closing-bar"><div class="container closing-inner"><p>ARCH.js is young &mdash; expect rough edges, and file an issue when you hit one.</p><div class="closing-links"><a href="./docs/#releases">Changelog</a><span>&middot;</span><a href="https://github.com/Chibbit-99/arch.js">Source</a><span>&middot;</span><a href="https://github.com/Chibbit-99/arch.js/issues">Issues</a></div></div></section>
+    <section>
+        <div class="container section-inner">
+            <div class="info-card">
+                <div class="info-tabs">
+                    <div class="radio-inputs" role="tablist" aria-label="ARCH.js information">
+                        <label class="radio">
+                            <input type="radio" name="arch-info" checked aria-controls="panel-about" />
+                            <span class="name info-tab active" id="tab-about" role="tab" aria-selected="true" data-panel="panel-about">About</span>
+                        </label>
+                        <label class="radio">
+                            <input type="radio" name="arch-info" aria-controls="panel-security" />
+                            <span class="name info-tab" id="tab-security" role="tab" aria-selected="false" data-panel="panel-security">Security</span>
+                        </label>
+                        <label class="radio">
+                            <input type="radio" name="arch-info" aria-controls="panel-compatibility" />
+                            <span class="name info-tab" id="tab-compatibility" role="tab" aria-selected="false" data-panel="panel-compatibility">Compatibility</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="info-panels">
+                    <div class="info-panel" id="panel-about" role="tabpanel" aria-labelledby="tab-about">
+                        <h2>A runtime for the part of JavaScript that runs in your browser.</h2>
+                        <p>ARCH.js is a small and actively developing project. It is experimental, package compatibility is still being worked on, and behaviour may change between releases.</p>
+                    </div>
+                    <div class="info-panel" id="panel-security" role="tabpanel" aria-labelledby="tab-security" hidden>
+                        <h2>Security stays within the browser.</h2>
+                        <p>ARCH.js runs client-side, so package code remains subject to the browser's normal security model. Third-party packages should still be treated as code you choose to execute and reviewed accordingly.</p>
+                    </div>
+                    <div class="info-panel" id="panel-compatibility" role="tabpanel" aria-labelledby="tab-compatibility" hidden>
+                        <h2>Compatibility is an ongoing part of ARCH.js.</h2>
+                        <p>ARCH.js is being developed around the wider JavaScript ecosystem. Compatibility varies by package, while support for libraries and tooling that expect different runtimes continues to expand.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="container section-inner">
+<h2>What's coming</h2>
+            <div class="compatibility">
+                <div class="compatibility-item">
+                    <div class="compatibility-brand">
+                        <img class="compatibility-icon" src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@16.31.0/icons/nodedotjs.svg" alt="Node.js logo">
+                        <span class="compatibility-name">Node.js</span>
+                    </div>
+                    <span class="compatibility-status status-supported">NPM packages supported</span>
+                </div>
+
+                <div class="compatibility-item">
+                    <div class="compatibility-brand">
+                        <img class="compatibility-icon" src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@16.31.0/icons/typescript.svg" alt="TypeScript logo">
+                        <span class="compatibility-name">TSX</span>
+                    </div>
+                    <span class="compatibility-status status-development">In development</span>
+                </div>
+
+                <div class="compatibility-item">
+                    <div class="compatibility-brand">
+                        <img class="compatibility-icon" src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@16.31.0/icons/vuedotjs.svg" alt="Vue logo">
+                        <span class="compatibility-name">Vue</span>
+                    </div>
+                    <span class="compatibility-status status-development">In development</span>
+                </div>
+
+                <div class="compatibility-item">
+                    <div class="compatibility-brand">
+                        <img class="compatibility-icon" src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@16.31.0/icons/nextdotjs.svg" alt="Next.js logo">
+                        <span class="compatibility-name">Next.js</span>
+                    </div>
+                    <span class="compatibility-status status-development">In development</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="faq">
+        <div class="container section-inner">
+<h2>FAQ</h2>
+            <div class="faq">
+                <details><summary>What is ARCH.js?</summary><div class="faq-answer">ARCH.js is a browser-side runtime and package loader for JavaScript projects. It is a small project and its APIs are still changing.</div></details>
+                <details><summary>Is ARCH.js a replacement for Node.js?</summary><div class="faq-answer">No. ARCH.js is a separate browser-side runtime. Some Node.js-oriented packages work through its compatibility layer, but compatibility is incomplete.</div></details>
+                <details><summary>How does package loading work?</summary><div class="faq-answer">ARCH.js resolves and prepares packages for browser use through its package-loading API. Support varies by package and is still expanding.</div></details>
+                <details><summary>Is ARCH.js production ready?</summary><div class="faq-answer">ARCH.js is not stable or production-ready. Expect breaking changes as the runtime, APIs, and package compatibility continue to evolve.</div></details>
+                <details><summary>Where can I see the source?</summary><div class="faq-answer">The source code, development history and current project status are available on GitHub.</div></details>
+            </div>
+        </div>
+    </section>
 </main>
-<footer><div class="container footer-grid"><div><a class="brand" href="./"><img src="./logo.png" alt="ARCH.js"><span>ARCH.js</span></a><p class="footer-note">A browser-side JavaScript runtime and package loader.</p></div><div><div class="footer-title">Learn ARCH.js</div><a href="./docs/#quick-start">Getting Started</a><a href="./docs/#packages">Packages</a><a href="./docs/#api">Runtime</a><a href="./demo/">Examples</a></div><div><div class="footer-title">Reference</div><a href="./docs/#api">ARCH APIs</a><a href="./docs/#packages">Package Loader</a><a href="./docs/#config">Configuration</a><a href="./docs/#layout">Deployment</a></div><div><div class="footer-title">Community</div><a href="https://github.com/Chibbit-99/arch.js">GitHub</a><a href="https://github.com/Chibbit-99/arch.js/issues">Issues</a><a href="./demo/">Examples</a></div></div></footer>
+
+<footer>
+    <div class="container footer-inner">
+        <span>ARCH.js</span>
+        <div class="footer-links">
+            <a href="#quickstart">Quickstart</a>
+            <a href="https://github.com/Chibbit-99/arch.js" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </div>
+</footer>
+
 <script>
-(() => {
-  const input = document.getElementById("package-name");
-  const run = document.getElementById("package-run");
-  const logs = document.getElementById("package-logs");
-  const output = document.getElementById("compiled-output");
-  const empty = document.getElementById("compiled-empty");
-  const copy = document.getElementById("compiled-copy");
-  let loaderPromise = null;
-  let compiledCode = "";
-  function formatArg(value) { if (typeof value === "string") return value; try { return JSON.stringify(value); } catch { return String(value); } }
-  function appendLog(kind, args) { logs.textContent += `[${kind}] ${args.map(formatArg).join(" ")}\n`; logs.scrollTop = logs.scrollHeight; }
-  async function ensureARCH() {
-    if (typeof globalThis.importPackage === "function") return;
-    if (loaderPromise) return loaderPromise;
-    loaderPromise = new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "https://chibbit-99.github.io/arch.js/releases/latest.js?homepage-demo";
-      script.onload = resolve;
-      script.onerror = () => reject(new Error("Failed to load ARCH.js"));
-      document.head.appendChild(script);
+    const infoTabs = document.querySelectorAll(".info-tab");
+    const infoPanels = document.querySelectorAll(".info-panel");
+
+    infoTabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+            const target = tab.dataset.panel;
+
+            infoTabs.forEach((item) => {
+                const active = item === tab;
+                item.classList.toggle("active", active);
+                item.setAttribute("aria-selected", active ? "true" : "false");
+            });
+
+            infoPanels.forEach((panel) => {
+                const active = panel.id === target;
+                panel.hidden = !active;
+            });
+        });
     });
-    return loaderPromise;
-  }
-  async function install() {
-    const specifier = input.value.trim();
-    if (!specifier) return;
-    run.disabled = true;
-    run.textContent = "Installing...";
-    logs.textContent = "";
-    output.value = "";
-    output.hidden = true;
-    empty.hidden = false;
-    copy.hidden = true;
-    const original = {log: console.log, warn: console.warn, error: console.error};
-    const write = (kind, args, fn) => { appendLog(kind, args); fn(...args); };
-    console.log = (...args) => write("LOG", args, original.log);
-    console.warn = (...args) => write("WARN", args, original.warn);
-    console.error = (...args) => write("ERROR", args, original.error);
-    try {
-      await ensureARCH();
-      const module = await globalThis.importPackage(specifier);
-      const entries = [...globalThis.ARCH.blobs.entries()].filter(([, value]) => value && value.packageURL);
-      const entry = entries.find(([key]) => key.startsWith(`${specifier}@`)) || entries.at(-1);
-      if (!entry) throw new Error("ARCH loaded the package but its compiled blob was not found.");
-      compiledCode = await fetch(entry[1].packageURL).then(async response => { if (!response.ok) throw new Error(`Compiled blob fetch failed: ${response.status}`); return response.text(); });
-      empty.hidden = true;
-      output.value = compiledCode;
-      output.hidden = false;
-      copy.hidden = false;
-      appendLog("OK", [`Imported ${specifier}`, `Exports: ${Object.keys(module).join(", ")}`, `Compiled JavaScript ready (${compiledCode.length.toLocaleString()} characters)`]);
-    } catch (error) {
-      appendLog("ERROR", [error?.message || String(error)]);
-    } finally {
-      console.log = original.log;
-      console.warn = original.warn;
-      console.error = original.error;
-      run.disabled = false;
-      run.textContent = "Install package";
-    }
-  }
-  copy.addEventListener("click", async () => { try { await navigator.clipboard.writeText(compiledCode); } catch { output.hidden = false; output.focus(); output.select(); document.execCommand("copy"); } copy.textContent = "Copied"; setTimeout(() => copy.textContent = "Copy compiled JS", 1400); });
-  run.addEventListener("click", install);
-  input.addEventListener("keydown", event => { if (event.key === "Enter") install(); });
 
-  const observer = new IntersectionObserver(entries => {
-    if (entries.some(entry => entry.isIntersecting)) {
-      observer.disconnect();
-      install();
+    const copyButton = document.getElementById("copyButton");
+    const code = `<script src="https://chibbit-99.github.io/arch.js/releases/latest.js"><\/script>
+
+<script type="module">
+    const THREE = await importPackage("three");
+<\/script>`;
+
+    async function copyQuickstart() {
+        try {
+            await navigator.clipboard.writeText(code);
+            copyButton.setAttribute("aria-label", "Copied");
+            setTimeout(() => copyButton.setAttribute("aria-label", "Copy code"), 1400);
+        } catch {
+            copyButton.setAttribute("aria-label", "Copy failed");
+            setTimeout(() => copyButton.setAttribute("aria-label", "Copy code"), 1400);
+        }
     }
-  }, { threshold: 0.4 });
-  observer.observe(document.getElementById("package-playground"));
-})();
+
+    copyButton.addEventListener("click", copyQuickstart);
+    copyButton.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            copyQuickstart();
+        }
+    });
 </script>
-
-
-</body></html>
+</body>
+</html>
