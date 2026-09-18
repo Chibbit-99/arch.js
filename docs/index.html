@@ -581,14 +581,12 @@
                     <button class="copy-code" data-copy="init-code">Copy</button>
                 </div>
 
-                <pre id="init-code"><span class="kw">const</span> THREE = <span class="kw">await</span> importPackage(<span class="str">"three"</span>);
-
-globalThis.THREE = THREE;</pre>
+                <pre id="init-code"><span class="kw">export const</span> THREE = <span class="kw">await</span> importPackage(<span class="str">"three"</span>);</pre>
             </div>
 
             <p>
-                This is useful for dependency setup that needs to happen before
-                the main application starts.
+                Exports from <span class="path">arch/init.js</span> are made available to the project
+                runtime. This is the pattern used by the Three.js example.
             </p>
         </section>
 
