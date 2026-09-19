@@ -41,11 +41,10 @@ jobs:
           node - <<'NODE'
           const fs = require("fs");
           const packages = JSON.parse(fs.readFileSync("packages.json", "utf8"));
-          let offset = 0;
-          if (fs.existsSync("progress.json")) {
-            const progress = JSON.parse(fs.readFileSync("progress.json", "utf8"));
-            offset = Number(progress.offset) || 0;
-          }
+          const results = fs.existsSync("results.json")
+            ? JSON.parse(fs.readFileSync("results.json", "utf8"))
+            : {};
+          const offset = Number(results.progress) || 0;
           const batch = packages.slice(offset, offset + 5000);
           fs.writeFileSync("batch.json", JSON.stringify(batch));
           console.log(`Starting at package index: ${offset}`);
@@ -74,21 +73,17 @@ jobs:
           if (!fs.existsSync(RELEASE_FILE)) throw new Error(`Missing ${RELEASE_FILE}`);
           if (!fs.existsSync(MODULE_DIR)) throw new Error(`Missing ${MODULE_DIR}`);
 
-          const moduleNames = fs.readdirSync(MODULE_DIR)
-            .filter(name => name.endsWith(".js"))
-            .sort();
-
+          const moduleNames = fs.readdirSync(MODULE_DIR).filter(name => name.endsWith(".js")).sort();
           if (!moduleNames.length) throw new Error("No ARCH modules found in ./module");
 
           const moduleFiles = new Map(
             moduleNames.map(name => [name, fs.readFileSync(path.join(MODULE_DIR, name), "utf8")])
           );
           const latestRelease = fs.readFileSync(RELEASE_FILE, "utf8");
-
           const projectConfig = JSON.stringify({ modules: moduleNames, js: [] });
           const projectInit = "// Normal ARCH project init.js; intentionally empty for compatibility testing.\n";
 
-          console.log(`ARCH local project ready | release=${latestRelease.length}B modules=${moduleNames.length}`);
+          console.log(`ARCH tester | 6 workers | reset=${PACKAGES_PER_BROWSER}`);
 
           function encodePackage(name) {
             return Buffer.from(name, "utf8").toString("base64url");
@@ -102,27 +97,13 @@ jobs:
             const error = String(result.error || "");
             const allText = [error, ...(result.consoleErrors || []), ...(result.pageErrors || []), ...(result.failedRequests || [])].join("\n");
             if (/Could not discover ARCH modules/i.test(error)) return "environment";
-            if (/Cannot resolve package entry/i.test(error)) return "unresolvable";
-            if (/Could not resolve .*@latest|No published version .* satisfies|has no package\.json/i.test(error)) return "unresolvable";
+            if (/Cannot resolve package entry|Could not resolve .*@latest|No published version .* satisfies|has no package\.json/i.test(error)) return "unresolvable";
             if (/Node builtin|Node-only code|Module not found/i.test(error)) return "incompatible";
+            if (/Timeout \d+ms exceeded/i.test(allText)) return "timeout";
             if (/Failed to fetch|NetworkError|net::|ECONNRESET|ERR_CONNECTION/i.test(allText)) return "network";
             if (/\b404\b/i.test(allText)) return "resource_error";
             if (/\b(408|429|500|502|503|504)\b/i.test(allText)) return "network";
-            if (/Timeout \d+ms exceeded/i.test(allText)) return "timeout";
             return "incompatible";
-          }
-
-          function makeResult(packageName, error, extra = {}) {
-            return {
-              done: true,
-              working: false,
-              packageName,
-              error: String(error?.stack || error?.message || error || "unknown error").slice(0, 10000),
-              consoleErrors: [],
-              pageErrors: [],
-              failedRequests: [],
-              ...extra
-            };
           }
 
           async function testPackage(browser, packageName) {
@@ -162,7 +143,15 @@ jobs:
                 { consoleErrors, pageErrors, failedRequests }
               );
             } catch (error) {
-              return makeResult(packageName, error, { consoleErrors: [], pageErrors: [], failedRequests: [] });
+              return {
+                done: true,
+                working: false,
+                packageName,
+                error: String(error?.stack || error?.message || error || "unknown error"),
+                consoleErrors: [],
+                pageErrors: [],
+                failedRequests: []
+              };
             } finally {
               if (context) await context.close().catch(() => {});
             }
@@ -176,33 +165,31 @@ jobs:
             const result = await testPackage(browser, SANITY_PACKAGE);
             const passed = result.packageName === SANITY_PACKAGE && result.working === true;
             console.log(`[SANITY] ${label} ${passed ? "PASS" : "FAIL"}`);
-            if (!passed) console.log(`[SANITY] ${label} error=${String(result.error || "unknown").replace(/\s+/g, " ").slice(0, 300)}`);
-            return { passed, result };
+            if (!passed) console.log(`[SANITY] ${label} error=${String(result.error || "unknown").replace(/\s+/g, " ").slice(0, 200)}`);
+            return passed;
           }
 
           async function createVerifiedBrowser(workerId) {
             const browser = await launchBrowser();
-            const sanity = await runSanityCheck(browser, `W${workerId}`);
-            if (!sanity.passed) {
+            if (!await runSanityCheck(browser, `W${workerId}`)) {
               await browser.close().catch(() => {});
-              throw new Error("ARCH.js test environment failed the known-good package in a fresh browser.");
+              throw new Error("ARCH sanity check failed");
             }
             return browser;
           }
 
           async function main() {
             const packages = JSON.parse(fs.readFileSync("batch.json", "utf8"));
-            if (!packages.length) return console.log("No packages left to test.");
+            if (!packages.length) return console.log("[DONE] no packages left");
 
             const working = [];
-            const failures = [];
-            const resultsByIndex = new Map();
             const workerState = new Map();
+            const results = new Map();
             let nextIndex = 0;
             const startedAt = Date.now();
 
             const heartbeat = setInterval(() => {
-              const done = resultsByIndex.size;
+              const done = results.size;
               const states = Array.from(workerState.entries()).map(([id, state]) => `W${id}:${state}`).join(" ");
               console.log(`[STATUS] ${done}/${packages.length} | ${states || "starting"} | ${Math.floor((Date.now() - startedAt) / 60000)}m`);
             }, HEARTBEAT_INTERVAL);
@@ -215,17 +202,14 @@ jobs:
                   res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
                   return res.end(projectConfig);
                 }
-
                 if (url.pathname === "/arch/init.js") {
                   res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
                   return res.end(projectInit);
                 }
-
                 if (url.pathname === "/releases/latest.js") {
                   res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
                   return res.end(latestRelease);
                 }
-
                 if (url.pathname.startsWith("/module/")) {
                   const name = decodeURIComponent(url.pathname.slice("/module/".length));
                   const source = moduleFiles.get(name);
@@ -236,37 +220,27 @@ jobs:
                   res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
                   return res.end(source);
                 }
-
                 if (url.pathname === "/test") {
                   const encoded = url.searchParams.get("package");
                   if (!encoded) {
                     res.writeHead(400);
                     return res.end("Missing package");
                   }
-
                   const packageName = decodePackage(encoded);
                   const html = `<!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="UTF-8">
-            <script src="/releases/latest.js"></script>
-          </head>
-          <body>
-            <script type="module">
-              const packageName = ${JSON.stringify(packageName)};
-              window.__ARCH_RESULT__ = { done: false, working: false, packageName, error: null };
-              (async () => {
-                try {
-                  await importPackage(packageName);
-                  window.__ARCH_RESULT__ = { done: true, working: true, packageName, error: null };
-                } catch (error) {
-                  window.__ARCH_RESULT__ = { done: true, working: false, packageName, error: String(error?.stack || error?.message || error).slice(0, 10000) };
-                }
-              })();
-            </script>
-          </body>
-          </html>`;
-
+          <html><head><meta charset="UTF-8"><script src="/releases/latest.js"></script></head>
+          <body><script type="module">
+          const packageName = ${JSON.stringify(packageName)};
+          window.__ARCH_RESULT__ = { done: false, working: false, packageName, error: null };
+          (async () => {
+            try {
+              await importPackage(packageName);
+              window.__ARCH_RESULT__ = { done: true, working: true, packageName, error: null };
+            } catch (error) {
+              window.__ARCH_RESULT__ = { done: true, working: false, packageName, error: String(error?.stack || error?.message || error).slice(0, 10000) };
+            }
+          })();
+          </script></body></html>`;
                   res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
                   return res.end(html);
                 }
@@ -278,13 +252,10 @@ jobs:
                 res.end(String(error));
               }
             });
-
             await new Promise((resolve, reject) => {
               server.once("error", reject);
               server.listen(4173, "127.0.0.1", resolve);
             });
-
-            console.log(`ARCH tester | ${packages.length} packages | ${CONCURRENCY} workers | browser reset=${PACKAGES_PER_BROWSER}`);
 
             async function worker(workerId) {
               let browser = null;
@@ -308,29 +279,15 @@ jobs:
                   const packageName = packages[index];
                   workerState.set(workerId, packageName);
                   const result = await testPackage(browser, packageName);
-                  resultsByIndex.set(index, result);
+                  results.set(index, result);
                   sinceRestart++;
 
                   if (result.working) {
                     working.push(packageName);
                     console.log(`[W${workerId}] ${index + 1}/${packages.length} ${packageName} [WORKS]`);
-                    continue;
+                  } else {
+                    console.log(`[W${workerId}] ${index + 1}/${packages.length} ${packageName} [${classifyFailure(result)}]`);
                   }
-
-                  const type = classifyFailure(result);
-                  if (type === "environment") {
-                    throw new Error(`ARCH environment failure while testing ${packageName}: ${result.error}`);
-                  }
-
-                  failures.push({
-                    package: packageName,
-                    type,
-                    error: result.error || "unknown error",
-                    consoleErrors: result.consoleErrors || [],
-                    pageErrors: result.pageErrors || [],
-                    failedRequests: result.failedRequests || []
-                  });
-                  console.log(`[W${workerId}] ${index + 1}/${packages.length} ${packageName} [${type}]`);
                 }
               } finally {
                 workerState.set(workerId, "done");
@@ -347,39 +304,17 @@ jobs:
               server.close();
             }
 
-            let previousOffset = 0;
-            if (fs.existsSync("progress.json")) {
-              previousOffset = Number(JSON.parse(fs.readFileSync("progress.json", "utf8")).offset) || 0;
-            }
-
-            const newOffset = previousOffset + packages.length;
-            const counts = {
-              incompatible: failures.filter(x => x.type === "incompatible").length,
-              unresolvable: failures.filter(x => x.type === "unresolvable").length,
-              network: failures.filter(x => x.type === "network").length,
-              resource_error: failures.filter(x => x.type === "resource_error").length,
-              timeout: failures.filter(x => x.type === "timeout").length
-            };
-
-            const orderedResults = Array.from(resultsByIndex.entries())
-              .sort(([a], [b]) => a - b)
-              .map(([, result]) => result);
+            const progress = Number(fs.existsSync("results.json")
+              ? JSON.parse(fs.readFileSync("results.json", "utf8")).progress
+              : 0) + packages.length;
 
             fs.writeFileSync("results.json", JSON.stringify({
-              version: 5,
-              packagetestedindex: newOffset,
-              tested_count: orderedResults.length,
-              working,
               working_count: working.length,
-              failed: failures.map(x => x.package),
-              failed_count: failures.length,
-              failure_counts: counts,
-              errors: failures
+              progress,
+              working
             }, null, 2) + "\n");
 
-            fs.writeFileSync("progress.json", JSON.stringify({ offset: newOffset }, null, 2) + "\n");
-
-            console.log(`[DONE] tested=${packages.length} works=${working.length} failed=${failures.length} incompatible=${counts.incompatible} unresolvable=${counts.unresolvable} network=${counts.network} resource=${counts.resource_error} timeout=${counts.timeout} index=${newOffset}`);
+            console.log(`[DONE] ${packages.length} tested | ${working.length} working | progress=${progress}`);
           }
 
           main().catch(error => {
@@ -395,7 +330,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add results.json progress.json
+          git add results.json
           if git diff --cached --quiet; then
             echo "Nothing to commit."
           else
