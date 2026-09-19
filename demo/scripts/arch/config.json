@@ -1,7 +1,7 @@
 {
     "modules": [
-        "npmloader",
-        "scriptloader"
+        "npmloader.js",
+        "scriptloader.js"
     ],
     "js": []
 }
