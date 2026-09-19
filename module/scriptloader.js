@@ -41,6 +41,8 @@ async function importScript(scriptPath) {
 
     const source = await response.text();
 
+    console.log(`[ARCH] Compiling ${scriptPath} as .${scriptType}`);
+
     const compiledCode = await compilerFunction(source, scriptPath);
 
     if (typeof compiledCode !== "string") {
@@ -49,12 +51,17 @@ async function importScript(scriptPath) {
         );
     }
 
-    // Execute the compiled JavaScript as a normal ARCH script.
+    console.log(
+        `[ARCH] Compiled ${scriptPath} (${compiledCode.length} bytes)`
+    );
+
     const script = document.createElement("script");
     script.textContent = compiledCode;
 
     (document.head || document.body || document.documentElement)
         .appendChild(script);
+
+    console.log(`[ARCH] Executed compiled script: ${scriptPath}`);
 
     return compiledCode;
 }
